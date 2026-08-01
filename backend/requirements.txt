@@ -1,0 +1,22 @@
+# Core FastAPI dependencies
+fastapi
+uvicorn[standard]
+python-dotenv
+pydantic
+
+# Orchestration
+langgraph
+langchain-core
+
+# Database & storage
+supabase
+asyncpg
+
+# LLM Providers
+google-generativeai
+groq
+openai
+
+# Evaluation
+pandas
+scikit-learn
