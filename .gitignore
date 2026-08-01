@@ -16,7 +16,11 @@ backend/*.py[cod]
 backend/*$py.class
 backend/.env
 backend/test_results.json
-
+backend/test_audio_results.json
+backend/test_table_results.json
+backend/test_audio_extraction.py
+backend/test_table_extraction.py
+backend/test_pdf_extraction.py
 # General ignores
 .DS_Store
 *.pem

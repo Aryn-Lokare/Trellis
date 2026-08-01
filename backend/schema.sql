@@ -12,6 +12,8 @@ CREATE TABLE IF NOT EXISTS documents (
   storage_path text,
   raw_text text,
   extraction_metadata jsonb,
+  status text DEFAULT 'pending',
+  error_message text,
   created_at timestamp DEFAULT now()
 );
 
@@ -67,3 +69,7 @@ CREATE INDEX IF NOT EXISTS idx_entities_name_type ON entities(name, type);
 CREATE INDEX IF NOT EXISTS idx_relationships_source_doc_id ON relationships(source_doc_id);
 CREATE INDEX IF NOT EXISTS idx_relationships_source_entity ON relationships(source_entity_id);
 CREATE INDEX IF NOT EXISTS idx_relationships_target_entity ON relationships(target_entity_id);
+
+-- Migration steps for existing databases
+ALTER TABLE documents ADD COLUMN IF NOT EXISTS status text DEFAULT 'pending';
+ALTER TABLE documents ADD COLUMN IF NOT EXISTS error_message text;
