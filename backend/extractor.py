@@ -312,3 +312,8 @@ from table_extractor import (
     normalize_table,
     extract_entities_from_table,
 )
+from schematic_extractor import (
+    normalize_schematic,
+    extract_entities_from_schematic,
+)
+

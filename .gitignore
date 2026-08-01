@@ -18,9 +18,8 @@ backend/.env
 backend/test_results.json
 backend/test_audio_results.json
 backend/test_table_results.json
-backend/test_audio_extraction.py
-backend/test_table_extraction.py
-backend/test_pdf_extraction.py
+backend/test_schematic_results.json
+
 # General ignores
 .DS_Store
 *.pem

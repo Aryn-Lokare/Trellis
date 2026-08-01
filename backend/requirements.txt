@@ -20,3 +20,5 @@ openai
 # Evaluation
 pandas
 scikit-learn
+Pillow
+
