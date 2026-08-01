@@ -2,7 +2,7 @@ import logging
 import uuid
 import re
 from typing import Dict, List, Tuple, Any, Optional
-from extractor import get_supabase_client, get_gemini_model, extract_chunk_entities, merge_entities
+from extractor import get_supabase_client, get_gemini_model, extract_chunk_entities, merge_entities, write_entity_sources
 
 logger = logging.getLogger("compliance-graphrag-audio-extractor")
 
@@ -234,10 +234,18 @@ def extract_entities_from_audio(document_id: str) -> dict:
     db_entities = []
     entity_id_map = {}  # Map (lower_name) -> entity_uuid
 
+    texts_to_embed = []
+    entity_keys = []
     for (name, ent_type), data in merged_entities_map.items():
         entity_uuid = str(uuid.uuid4())
         entity_id_map[name.lower()] = entity_uuid
+        texts_to_embed.append(f"{data['name']} ({data['type']})")
+        entity_keys.append(((name, ent_type), data, entity_uuid))
 
+    from extractor import generate_embeddings_batch
+    embeddings = generate_embeddings_batch(texts_to_embed)
+
+    for idx, ((name, ent_type), data, entity_uuid) in enumerate(entity_keys):
         spans_str = ", ".join(list(data["source_spans"]))
         locs_str = ", ".join(data["source_locations"])
 
@@ -249,7 +257,7 @@ def extract_entities_from_audio(document_id: str) -> dict:
                 "source_doc_id": document_id,
                 "source_span": spans_str,
                 "source_location": locs_str,
-                "embedding": None,
+                "embedding": embeddings[idx] if idx < len(embeddings) else None,
             }
         )
 
@@ -287,6 +295,7 @@ def extract_entities_from_audio(document_id: str) -> dict:
     if db_entities:
         logger.info(f"Writing {len(db_entities)} entities to database...")
         supabase.table("entities").insert(db_entities).execute()
+        write_entity_sources(supabase, db_entities, document_id)
 
     if db_relationships:
         logger.info(f"Writing {len(db_relationships)} relationships to database...")

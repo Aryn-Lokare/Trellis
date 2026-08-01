@@ -47,6 +47,12 @@ Your task is to analyze the provided compliance text chunk and extract entities 
 
 TAXONOMY:
 Only extract entities and relationships matching the following types. Do not invent any new types.
+CRITICAL TYPE RESTRICTION: Do NOT use column headers or generic fields (like 'user', 'database', 'server', 'firewall', 'details', 'action', 'status') as entity or relationship types. You MUST map them strictly to the allowed types listed below. For example:
+- A user service account (e.g. 'svc-northbridge-01') must be mapped to 'system'.
+- A user human (e.g. 'Marcus Reyes') must be mapped to 'person'.
+- IT systems, databases, firewalls, servers (e.g. 'CustomerDB-Prod', 'Firewall-East') must be mapped to 'system'.
+- Do NOT use 'company' or 'vendor' as a type; use 'organization'.
+- Do NOT invent any custom entity types; if it doesn't fit the 7 allowed types below, do not extract it.
 
 Entity Types:
 1. person: Individual human beings.
@@ -135,7 +141,7 @@ def get_gemini_model() -> genai.GenerativeModel:
         raise ValueError("Missing GEMINI_API_KEY in environment variables.")
     genai.configure(api_key=api_key)
     return genai.GenerativeModel(
-        model_name="gemini-2.5-flash", system_instruction=SYSTEM_PROMPT
+        model_name="gemini-2.0-flash", system_instruction=SYSTEM_PROMPT
     )
 
 
@@ -196,6 +202,40 @@ def validate_extraction_response(data: Dict[str, Any]) -> List[str]:
     return errors
 
 
+def extract_chunk_entities_with_groq(prompt: str) -> Dict[str, Any]:
+    """Fallback extraction function using Groq Llama 3.3 70B when Gemini fails."""
+    api_key = os.environ.get("GROQ_API_KEY")
+    if not api_key:
+        logger.error("GROQ_API_KEY not found in environment. Cannot perform Groq fallback.")
+        return {"entities": [], "relationships": []}
+
+    import groq
+    client = groq.Groq(api_key=api_key)
+    try:
+        logger.info("Calling Groq llama-3.3-70b-versatile for entity extraction fallback...")
+        response = client.chat.completions.create(
+            model="llama-3.3-70b-versatile",
+            messages=[
+                {"role": "system", "content": SYSTEM_PROMPT},
+                {"role": "user", "content": prompt}
+            ],
+            response_format={"type": "json_object"},
+            temperature=0.0
+        )
+        response_text = response.choices[0].message.content.strip()
+        data = json.loads(response_text)
+        errors = validate_extraction_response(data)
+        if errors:
+            logger.warning(f"Groq extraction validation failed: {'; '.join(errors)}. Attempting to filter types...")
+            entities = [e for e in data.get("entities", []) if e.get("type") in ALLOWED_ENTITY_TYPES]
+            relationships = [r for r in data.get("relationships", []) if r.get("relation_type") in ALLOWED_RELATION_TYPES]
+            return {"entities": entities, "relationships": relationships}
+        return data
+    except Exception as e:
+        logger.error(f"Groq extraction fallback failed: {str(e)}")
+        return {"entities": [], "relationships": []}
+
+
 def extract_chunk_entities(
     model: genai.GenerativeModel,
     chunk_text: str,
@@ -204,10 +244,18 @@ def extract_chunk_entities(
 ) -> Dict[str, Any]:
     """
     Calls the LLM on a specific text chunk and returns the validated JSON data.
-    Implements a single-retry mechanism on schema/type failures.
+    Attempts to use Groq first to conserve Gemini free-tier quota for vision/multimodal tasks.
     """
     instruction_part = f"\n{user_instruction}\n" if user_instruction else ""
     prompt = f"Source Location Context: {location_label}\n{instruction_part}\nText to analyze:\n{chunk_text}"
+
+    if os.environ.get("GROQ_API_KEY"):
+        logger.info("Using Groq directly for text-based entity extraction...")
+        data = extract_chunk_entities_with_groq(prompt)
+        # If Groq successfully returned valid entities or relationships, return them immediately
+        if data.get("entities") or data.get("relationships"):
+            return data
+        logger.warning("Groq extraction returned empty results. Falling back to Gemini...")
 
     try:
         response = model.generate_content(
@@ -215,27 +263,24 @@ def extract_chunk_entities(
         )
         response_text = response.text.strip()
         data = json.loads(response_text)
+        
+        errors = validate_extraction_response(data)
+        if not errors:
+            return data
+
+        error_msg = "; ".join(errors)
+        logger.warning(f"Schema validation failed on first attempt: {error_msg}. Retrying.")
     except Exception as e:
-        logger.error(
-            f"Failed to fetch or parse JSON from LLM: {str(e)}. Retrying with warning."
+        logger.warning(
+            f"Failed to fetch/parse JSON from Gemini on first attempt: {str(e)}. Attempting Groq fallback immediately..."
         )
-        return retry_extract_chunk(
-            model,
-            prompt,
-            f"The response was not valid JSON or threw an exception: {str(e)}",
-        )
+        return extract_chunk_entities_with_groq(prompt)
 
-    errors = validate_extraction_response(data)
-    if not errors:
-        return data
-
-    error_msg = "; ".join(errors)
-    logger.warning(f"Schema validation failed on first attempt: {error_msg}. Retrying.")
-    return retry_extract_chunk(
-        model,
-        prompt,
-        f"Your previous response was invalid for the following reasons: {error_msg}",
-    )
+    try:
+        return retry_extract_chunk(model, prompt, f"Your previous response was invalid for the following reasons: {error_msg}")
+    except Exception as e:
+        logger.warning(f"Gemini retry threw exception: {str(e)}. Attempting Groq fallback...")
+        return extract_chunk_entities_with_groq(prompt)
 
 
 def retry_extract_chunk(
@@ -254,14 +299,14 @@ def retry_extract_chunk(
         errors = validate_extraction_response(data)
         if errors:
             logger.error(
-                f"Retry validation failed. Skipping chunk. Errors: {'; '.join(errors)}"
+                f"Retry validation failed: {'; '.join(errors)}. Attempting Groq fallback..."
             )
-            return {"entities": [], "relationships": []}
+            return extract_chunk_entities_with_groq(original_prompt)
 
         return data
     except Exception as e:
-        logger.error(f"Retry attempt threw exception: {str(e)}. Skipping chunk.")
-        return {"entities": [], "relationships": []}
+        logger.error(f"Retry attempt threw exception: {str(e)}. Attempting Groq fallback...")
+        return extract_chunk_entities_with_groq(original_prompt)
 
 
 def merge_entities(
@@ -296,6 +341,49 @@ def merge_entities(
     return merged
 
 
+def generate_embeddings_batch(texts: List[str]) -> List[List[float]]:
+    """Generates 768-dimensional embedding vectors for a list of texts in batch using Gemini."""
+    if not texts:
+        return []
+    api_key = os.environ.get("GEMINI_API_KEY")
+    if not api_key:
+        raise ValueError("Missing GEMINI_API_KEY in environment variables.")
+    genai.configure(api_key=api_key)
+    try:
+        response = genai.embed_content(
+            model="models/gemini-embedding-2",
+            content=texts,
+            task_type="retrieval_document",
+            output_dimensionality=768
+        )
+        return response["embedding"]
+    except Exception as e:
+        logger.error(f"Failed to generate batch embeddings: {str(e)}")
+        return [[0.0] * 768 for _ in texts]
+
+
+def write_entity_sources(
+    supabase: Client,
+    db_entities: List[Dict[str, Any]],
+    document_id: str,
+) -> None:
+    """
+    After inserting entities, writes provenance rows to the entity_sources table
+    so that each entity's per-document source_span and source_location are tracked.
+    """
+    sources = []
+    for ent in db_entities:
+        sources.append({
+            "entity_id": ent["id"],
+            "source_doc_id": document_id,
+            "source_span": ent.get("source_span", ""),
+            "source_location": ent.get("source_location", ""),
+        })
+    if sources:
+        logger.info(f"Writing {len(sources)} entity_sources provenance rows...")
+        supabase.table("entity_sources").insert(sources).execute()
+
+
 # Re-export modular components for backward compatibility
 from pdf_extractor import chunk_text_by_pages, extract_entities_from_pdf
 from audio_extractor import (
@@ -312,8 +400,5 @@ from table_extractor import (
     normalize_table,
     extract_entities_from_table,
 )
-from schematic_extractor import (
-    normalize_schematic,
-    extract_entities_from_schematic,
-)
+from dedup_entities import deduplicate_entities
 

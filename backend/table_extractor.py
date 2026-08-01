@@ -4,7 +4,7 @@ import io
 import pandas as pd
 from typing import Dict, List, Tuple, Any, Optional
 from supabase import Client
-from extractor import get_supabase_client, get_gemini_model, extract_chunk_entities, merge_entities
+from extractor import get_supabase_client, get_gemini_model, extract_chunk_entities, merge_entities, write_entity_sources
 
 logger = logging.getLogger("compliance-graphrag-table-extractor")
 
@@ -288,7 +288,14 @@ def extract_entities_from_table(document_id: str) -> dict:
         "where each entity or relationship is located.\n"
         "Unlike prose where proximity does not imply relationship, co-occurrence of entities in the same table row "
         "is a strong indicator of relationships. Extract relationships between entities on the same row if the "
-        "columns imply a logical connection (e.g. if a row links a vendor to a status or system, they are related)."
+        "columns imply a logical connection (e.g. if a row links a vendor to a status or system, they are related).\n"
+        "CRITICAL TYPE RESTRICTION: Do NOT use column headers (like 'user', 'database', 'server', 'firewall') as entity types. "
+        "Strictly map them to allowed types (e.g. map 'user' accounts to 'system' or 'person', 'database'/'server' to 'system').\n"
+        "CRITICAL FOR EVENT CONTEXT: For all extracted entities and relationships from a row, you MUST capture the "
+        "contextual event columns (such as 'action', 'status', 'event_type', 'details') in their 'source_span' description. "
+        "Do NOT just copy the entity names. For example, if row 3 shows that user 'svc-northbridge-01' performed a 'bulk_export' "
+        "action on 'CustomerDB-Prod' and the status was 'flagged', the source_span for the relationship between the user and the system "
+        "MUST be: 'svc-northbridge-01 performed a flagged bulk_export on CustomerDB-Prod'. This ensures the event action is not lost."
     )
     
     for chunk_text, location in chunks:
@@ -306,10 +313,18 @@ def extract_entities_from_table(document_id: str) -> dict:
     db_entities = []
     entity_id_map = {}
     
+    texts_to_embed = []
+    entity_keys = []
     for (name, ent_type), data in merged_entities_map.items():
         entity_uuid = str(uuid.uuid4())
         entity_id_map[name.lower()] = entity_uuid
-        
+        texts_to_embed.append(f"{data['name']} ({data['type']})")
+        entity_keys.append(((name, ent_type), data, entity_uuid))
+
+    from extractor import generate_embeddings_batch
+    embeddings = generate_embeddings_batch(texts_to_embed)
+
+    for idx, ((name, ent_type), data, entity_uuid) in enumerate(entity_keys):
         spans_str = ", ".join(list(data["source_spans"]))
         locs_str = ", ".join(data["source_locations"])
         
@@ -320,7 +335,7 @@ def extract_entities_from_table(document_id: str) -> dict:
             "source_doc_id": document_id,
             "source_span": spans_str,
             "source_location": locs_str,
-            "embedding": None
+            "embedding": embeddings[idx] if idx < len(embeddings) else None
         })
         
     db_relationships = []
@@ -351,6 +366,7 @@ def extract_entities_from_table(document_id: str) -> dict:
     if db_entities:
         logger.info(f"Writing {len(db_entities)} entities to database...")
         supabase.table("entities").insert(db_entities).execute()
+        write_entity_sources(supabase, db_entities, document_id)
         
     if db_relationships:
         logger.info(f"Writing {len(db_relationships)} relationships to database...")
