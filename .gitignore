@@ -7,6 +7,7 @@ frontend/.vercel/
 frontend/.env*.local
 frontend/.env
 
+
 # Python (backend) ignores
 backend/venv/
 backend/.venv/
@@ -26,3 +27,4 @@ yarn-debug.log*
 yarn-error.log*
 .pnpm-debug.log*
 *.tsbuildinfo
+.env

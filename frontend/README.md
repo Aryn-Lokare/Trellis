@@ -1,4 +1,14 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Compliance GraphRAG frontend
+
+## Supabase authentication setup
+
+1. Create a Supabase project and copy its Project URL and publishable (or anon) key into a local `.env` file using `.env.example` as the template.
+2. Run `backend/schema.sql` in the Supabase SQL editor. It creates the protected `public.profiles` table and a trigger that mirrors a new `auth.users` account's email and display name. Passwords remain managed by Supabase Auth and are never stored in `profiles`.
+3. In Supabase Authentication settings, add your local and deployed application URLs to the allowed redirect URLs. Enable email confirmation if you want account verification before the first sign-in.
+
+Workspace routes require a valid Supabase session in the frontend. Configure backend JWT verification separately before exposing the ingestion and query APIs publicly.
+
+## Getting started
 
 ## Getting Started
 
