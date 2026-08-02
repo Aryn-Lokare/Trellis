@@ -18,6 +18,7 @@ app = FastAPI(
     title="compliance-grag-backend",
     description="Backend for the Multi-Modal Knowledge Graph Synthesis for Enterprise Compliance",
     version="0.1.0",
+    root_path="/api/backend",
 )
 
 # Set up CORS middleware to allow communication with frontend
@@ -176,7 +177,7 @@ def _process_ingestion_background(
 # ---------------------------------------------------------------------------
 
 
-@app.get("/api/health")
+@app.get("/health")
 def health_check():
     """Verify backend is running and healthy."""
     return {
@@ -186,7 +187,7 @@ def health_check():
     }
 
 
-@app.post("/api/upload")
+@app.post("/upload")
 async def upload_endpoint(
     background_tasks: BackgroundTasks,
     file: UploadFile = File(...),
@@ -226,7 +227,7 @@ async def upload_endpoint(
     return {"id": doc_id, "filename": filename, "type": doc_type, "status": "pending"}
 
 
-@app.get("/api/documents")
+@app.get("/documents")
 def list_documents():
     """Return all ingested documents."""
     supabase = get_supabase_client()
@@ -250,7 +251,7 @@ def list_documents():
     return docs
 
 
-@app.get("/api/document/{doc_id}")
+@app.get("/document/{doc_id}")
 def get_document(doc_id: str):
     """Return document metadata plus its extracted entities and relationships."""
     supabase = get_supabase_client()
@@ -306,7 +307,7 @@ def get_document(doc_id: str):
     }
 
 
-@app.get("/api/document/{doc_id}/status")
+@app.get("/document/{doc_id}/status")
 def get_document_status(doc_id: str):
     """Return live ingestion status for a document (polled by the frontend progress bar)."""
     supabase = get_supabase_client()
@@ -367,7 +368,7 @@ def get_document_status(doc_id: str):
     }
 
 
-@app.get("/api/graph")
+@app.get("/graph")
 def get_graph():
     """Return the full knowledge graph for the explorer UI."""
     supabase = get_supabase_client()
@@ -409,7 +410,7 @@ def get_graph():
     return {"nodes": nodes, "edges": edges}
 
 
-@app.post("/api/query")
+@app.post("/query")
 def query_endpoint(req: QueryRequest):
     """Execute the GraphRAG query pipeline and return answer + citations + subgraph."""
     try:
