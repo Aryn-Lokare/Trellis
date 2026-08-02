@@ -5,22 +5,43 @@ import { DropzoneCard } from '../../components/upload/DropzoneCard';
 import { IngestionProgressList } from '../../components/upload/IngestionProgressList';
 import { DocumentListTable } from '../../components/upload/DocumentListTable';
 import { useUpload } from '../../hooks/useUpload';
-import { DocumentType } from '../../types';
-import { UploadCloud, Database, ArrowRight } from 'lucide-react';
+import { ArrowRight } from 'lucide-react';
 import Link from 'next/link';
 
+interface FileEntry {
+  id: string;
+  file: File;
+  type: string;
+}
+
 export default function UploadPage() {
-  const [activeDocumentId, setActiveDocumentId] = useState<string | null>(null);
+  const [activeDocumentIds, setActiveDocumentIds] = useState<string[]>([]);
+  const [isUploading, setIsUploading] = useState(false);
+  const [uploadError, setUploadError] = useState<string | null>(null);
   const uploadMutation = useUpload();
 
-  const handleUpload = async (file: File, docType: DocumentType) => {
+  const handleUpload = async (files: FileEntry[]) => {
+    setIsUploading(true);
+    setUploadError(null);
+    const newIds: string[] = [];
+
     try {
-      const result = await uploadMutation.mutateAsync({ file, documentType: docType });
-      if (result && result.id) {
-        setActiveDocumentId(result.id);
+      for (const entry of files) {
+        const result = await uploadMutation.mutateAsync({
+          file: entry.file,
+          documentType: entry.type,
+        });
+        if (result && result.id) {
+          newIds.push(result.id);
+        }
       }
-    } catch {
-      // Error is handled via uploadMutation.error
+      // Append to any existing active IDs (user might upload again while others are processing)
+      setActiveDocumentIds((prev) => [...prev, ...newIds]);
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : 'Upload failed. Check backend connection.';
+      setUploadError(msg);
+    } finally {
+      setIsUploading(false);
     }
   };
 
@@ -31,7 +52,7 @@ export default function UploadPage() {
         <div>
           <span className="mono-label text-[#ff7759]">STEP 1 OF 3 • MULTI-MODAL INGESTION</span>
           <h1 className="text-4xl sm:text-5xl font-medium tracking-tight text-[#17171c] mt-1">
-            Ingest Evidence & Build Graph
+            Ingest Evidence &amp; Build Graph
           </h1>
           <p className="text-base text-[#616161] max-w-2xl mt-2">
             Upload compliance documents across mixed formats (PDF policy manuals, audio call transcripts, CSV risk matrices, and architectural schematics) to automatically extract entities and relationship triples into the Knowledge Graph.
@@ -44,15 +65,15 @@ export default function UploadPage() {
         </Link>
       </div>
 
-      {/* Primary Ingestion Form */}
+      {/* Primary Ingestion Form — now accepts multiple files */}
       <DropzoneCard
         onUpload={handleUpload}
-        isUploading={uploadMutation.isPending}
-        uploadError={uploadMutation.error ? uploadMutation.error.message || 'Upload failed. Check backend connection.' : null}
+        isUploading={isUploading}
+        uploadError={uploadError}
       />
 
-      {/* Live Ingestion Status Bar */}
-      <IngestionProgressList activeDocumentId={activeDocumentId} />
+      {/* Live Ingestion Status — renders a progress card per active document */}
+      <IngestionProgressList activeDocumentIds={activeDocumentIds} />
 
       {/* Repository Table */}
       <DocumentListTable />

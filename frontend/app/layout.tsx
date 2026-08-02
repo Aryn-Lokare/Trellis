@@ -3,10 +3,25 @@
 import React, { useEffect, useState } from 'react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { usePathname, useRouter } from 'next/navigation';
+import { Space_Grotesk, Inter } from 'next/font/google';
+import Image from 'next/image';
+import Lenis from 'lenis';
 import { MainNavbar } from '../components/layout/MainNavbar';
 import { CitationSourcePanel } from '../components/citations/CitationSourcePanel';
 import { isSupabaseConfigured, supabase } from '../lib/supabase';
 import './globals.css';
+
+const spaceGrotesk = Space_Grotesk({
+  subsets: ['latin'],
+  variable: '--font-display',
+  display: 'swap',
+});
+
+const inter = Inter({
+  subsets: ['latin'],
+  variable: '--font-sans',
+  display: 'swap',
+});
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
@@ -24,6 +39,26 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         },
       })
   );
+
+  useEffect(() => {
+    const lenis = new Lenis({
+      duration: 1.2,
+      easing: (t) => Math.min(1, 1.001 - Math.pow(2, -10 * t)),
+      gestureOrientation: 'vertical',
+      smoothWheel: true,
+    });
+
+    function raf(time: number) {
+      lenis.raf(time);
+      requestAnimationFrame(raf);
+    }
+
+    requestAnimationFrame(raf);
+
+    return () => {
+      lenis.destroy();
+    };
+  }, []);
 
   useEffect(() => {
     if (isMarketingRoute) {
@@ -59,7 +94,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
   }, [isMarketingRoute, router]);
 
   return (
-    <html lang="en">
+    <html lang="en" className={`${spaceGrotesk.variable} ${inter.variable}`}>
       <head>
         <title>Compliance GraphRAG — Enterprise AI Platform</title>
         <meta
@@ -76,8 +111,19 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
           {!isMarketingRoute && <CitationSourcePanel />}
           <footer className="border-t border-[#d9d9dd] py-6 bg-[#17171c] text-white">
             <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex flex-col sm:flex-row items-center justify-between gap-4 text-xs">
-              <div className="mono-label text-[#93939f]">
-                COMPLIANCE GRAPHRAG • DOMAIN 3 GEN AI DEMO
+              <div className="flex items-center gap-2">
+                <div className="relative w-5 h-5">
+                  <Image 
+                    src="/trellis.png" 
+                    alt="Trellis Logo" 
+                    fill
+                    sizes="20px"
+                    className="object-contain"
+                  />
+                </div>
+                <div className="mono-label text-[#93939f]">
+                  TRELLIS • COMPLIANCE GRAPHRAG DEMO
+                </div>
               </div>
               <div className="text-[#93939f]">
                 Cohere Editorial Control Framework • Multi-Modal RAG Pipeline
