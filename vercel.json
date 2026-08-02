@@ -9,16 +9,22 @@
       "framework": "fastapi"
     }
   },
-  "routes": [
+  "rewrites": [
     {
-      "src": "/api/backend/(.*)",
-      "dest": "/api/backend/$1",
-      "service": "backend"
+      "source": "/api/backend/:path*",
+      "destination": {
+        "type": "service",
+        "service": "backend",
+        "path": "/:path*"
+      }
     },
     {
-      "src": "/(.*)",
-      "dest": "/$1",
-      "service": "frontend"
+      "source": "/:path*",
+      "destination": {
+        "type": "service",
+        "service": "frontend",
+        "path": "/:path*"
+      }
     }
   ]
 }
