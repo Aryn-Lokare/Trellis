@@ -176,7 +176,7 @@ def _process_ingestion_background(
 # ---------------------------------------------------------------------------
 
 
-@app.get("/health")
+@app.get("/backend/health")
 def health_check():
     """Verify backend is running and healthy."""
     return {
@@ -186,7 +186,7 @@ def health_check():
     }
 
 
-@app.post("/upload")
+@app.post("/backend/upload")
 async def upload_endpoint(
     background_tasks: BackgroundTasks,
     file: UploadFile = File(...),
@@ -226,7 +226,7 @@ async def upload_endpoint(
     return {"id": doc_id, "filename": filename, "type": doc_type, "status": "pending"}
 
 
-@app.get("/documents")
+@app.get("/backend/documents")
 def list_documents():
     """Return all ingested documents."""
     supabase = get_supabase_client()
@@ -250,7 +250,7 @@ def list_documents():
     return docs
 
 
-@app.get("/document/{doc_id}")
+@app.get("/backend/document/{doc_id}")
 def get_document(doc_id: str):
     """Return document metadata plus its extracted entities and relationships."""
     supabase = get_supabase_client()
@@ -306,7 +306,7 @@ def get_document(doc_id: str):
     }
 
 
-@app.get("/document/{doc_id}/status")
+@app.get("/backend/document/{doc_id}/status")
 def get_document_status(doc_id: str):
     """Return live ingestion status for a document (polled by the frontend progress bar)."""
     supabase = get_supabase_client()
@@ -367,7 +367,7 @@ def get_document_status(doc_id: str):
     }
 
 
-@app.get("/graph")
+@app.get("/backend/graph")
 def get_graph():
     """Return the full knowledge graph for the explorer UI."""
     supabase = get_supabase_client()
@@ -409,7 +409,7 @@ def get_graph():
     return {"nodes": nodes, "edges": edges}
 
 
-@app.post("/query")
+@app.post("/backend/query")
 def query_endpoint(req: QueryRequest):
     """Execute the GraphRAG query pipeline and return answer + citations + subgraph."""
     try:

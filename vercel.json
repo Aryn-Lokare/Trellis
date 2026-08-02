@@ -15,7 +15,7 @@
       "destination": {
         "type": "service",
         "service": "backend",
-        "path": "/:path*"
+        "path": "/backend/:path*"
       }
     },
     {
