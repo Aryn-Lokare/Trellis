@@ -17,6 +17,11 @@ backend/*.py[cod]
 backend/*$py.class
 backend/.env
 backend/test_results.json
+backend/test_audio_results.json
+backend/test_table_results.json
+backend/test_schematic_results.json
+backend/test_query_results.json
+
 
 # General ignores
 .DS_Store

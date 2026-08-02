@@ -20,3 +20,7 @@ openai
 # Evaluation
 pandas
 scikit-learn
+Pillow
+pypdf
+
+
