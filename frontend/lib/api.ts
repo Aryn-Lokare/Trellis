@@ -43,7 +43,7 @@ export const api = {
       formData.append('type', documentType);
     }
 
-    const response = await apiClient.post('/upload', formData, {
+    const response = await apiClient.post('/backend/upload', formData, {
       headers: {
         'Content-Type': 'multipart/form-data',
       },
@@ -56,7 +56,7 @@ export const api = {
    * POST /query
    */
   async submitQuery(question: string): Promise<QueryResponse> {
-    const response = await apiClient.post<QueryResponse>('/query', {
+    const response = await apiClient.post<QueryResponse>('/backend/query', {
       question,
     });
     return response.data;
@@ -67,7 +67,7 @@ export const api = {
    * GET /graph
    */
   async getGraph(): Promise<Subgraph> {
-    const response = await apiClient.get<Subgraph>('/graph');
+    const response = await apiClient.get<Subgraph>('/backend/graph');
     return response.data;
   },
 
@@ -76,7 +76,7 @@ export const api = {
    * GET /document/{id}
    */
   async getDocument(id: string): Promise<DocumentDetail> {
-    const response = await apiClient.get<DocumentDetail>(`/document/${id}`);
+    const response = await apiClient.get<DocumentDetail>(`/backend/document/${id}`);
     return response.data;
   },
 
@@ -86,7 +86,7 @@ export const api = {
    */
   async getDocuments(): Promise<Document[]> {
     try {
-      const response = await apiClient.get<Document[]>('/documents');
+      const response = await apiClient.get<Document[]>('/backend/documents');
       return response.data;
     } catch {
       // Fallback if backend does not expose list route separately
@@ -112,7 +112,7 @@ export const api = {
    */
   async getIngestionStatus(id: string): Promise<IngestionStatus> {
     try {
-      const response = await apiClient.get<IngestionStatus>(`/document/${id}/status`);
+      const response = await apiClient.get<IngestionStatus>(`/backend/document/${id}/status`);
       return response.data;
     } catch {
       const doc = await api.getDocument(id);
