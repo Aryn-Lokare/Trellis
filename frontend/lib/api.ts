@@ -25,7 +25,7 @@ export const api = {
    * GET /health
    */
   async getHealth(): Promise<HealthResponse> {
-    const response = await apiClient.get<HealthResponse>('/health');
+    const response = await apiClient.get<HealthResponse>('/backend/health');
     return response.data;
   },
 
