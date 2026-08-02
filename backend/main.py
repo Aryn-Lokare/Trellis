@@ -18,7 +18,7 @@ app = FastAPI(
     title="compliance-grag-backend",
     description="Backend for the Multi-Modal Knowledge Graph Synthesis for Enterprise Compliance",
     version="0.1.0",
-    root_path="/api/backend",
+    root_path="/backend",
 )
 
 # Set up CORS middleware to allow communication with frontend
