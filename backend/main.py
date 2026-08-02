@@ -17,7 +17,7 @@ logger = logging.getLogger("compliance-graphrag-api")
 app = FastAPI(
     title="compliance-grag-backend",
     description="Backend for the Multi-Modal Knowledge Graph Synthesis for Enterprise Compliance",
-    version="0.1.0"
+    version="0.1.0",
 )
 
 # Set up CORS middleware to allow communication with frontend
@@ -29,8 +29,10 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+
 class QueryRequest(BaseModel):
     question: str
+
 
 # Instantiate the compiled LangGraph query pipeline
 query_graph = build_query_graph()
@@ -47,8 +49,10 @@ STATUS_MAP = {
     "failed": "failed",
 }
 
+
 def _map_status(db_status: str) -> str:
     return STATUS_MAP.get(db_status, db_status)
+
 
 def _infer_doc_type(filename: str) -> str:
     ext = os.path.splitext(filename)[1].lower()
@@ -58,11 +62,15 @@ def _infer_doc_type(filename: str) -> str:
         return "table"
     return "pdf"
 
+
 # ---------------------------------------------------------------------------
 #  Background ingestion worker
 # ---------------------------------------------------------------------------
 
-def _process_ingestion_background(doc_id: str, local_filepath: str, doc_type: str, filename: str):
+
+def _process_ingestion_background(
+    doc_id: str, local_filepath: str, doc_type: str, filename: str
+):
     """Runs the full ingestion pipeline in the background after /upload returns."""
     from pdf_extractor import extract_entities_from_pdf
     from audio_extractor import extract_entities_from_audio
@@ -74,6 +82,7 @@ def _process_ingestion_background(doc_id: str, local_filepath: str, doc_type: st
     try:
         if doc_type == "pdf":
             import pypdf
+
             reader = pypdf.PdfReader(local_filepath)
             pages_data = []
             full_text_parts = []
@@ -83,15 +92,18 @@ def _process_ingestion_background(doc_id: str, local_filepath: str, doc_type: st
                 full_text_parts.append(page_text)
             full_text = "\f".join(full_text_parts)
 
-            supabase.table("documents").update({
-                "raw_text": full_text,
-                "extraction_metadata": {"pages": pages_data},
-            }).eq("id", doc_id).execute()
+            supabase.table("documents").update(
+                {
+                    "raw_text": full_text,
+                    "extraction_metadata": {"pages": pages_data},
+                }
+            ).eq("id", doc_id).execute()
 
             extract_entities_from_pdf(doc_id)
 
         elif doc_type == "audio":
             import google.generativeai as genai
+
             api_key = os.environ.get("GEMINI_API_KEY")
             genai.configure(api_key=api_key)
             audio_file = genai.upload_file(path=local_filepath)
@@ -108,37 +120,48 @@ def _process_ingestion_background(doc_id: str, local_filepath: str, doc_type: st
             except Exception:
                 pass
 
-            supabase.table("documents").update({
-                "raw_text": transcript_text,
-                "extraction_metadata": {"transcript_engine": "gemini-2.0-flash"},
-            }).eq("id", doc_id).execute()
+            supabase.table("documents").update(
+                {
+                    "raw_text": transcript_text,
+                    "extraction_metadata": {"transcript_engine": "gemini-2.0-flash"},
+                }
+            ).eq("id", doc_id).execute()
 
             extract_entities_from_audio(doc_id)
 
         elif doc_type == "table":
             from ingest import upload_to_supabase_storage
-            remote_path = f"tables/{filename}"
-            storage_path = upload_to_supabase_storage(supabase, local_filepath, remote_path)
 
-            supabase.table("documents").update({
-                "storage_path": storage_path,
-            }).eq("id", doc_id).execute()
+            remote_path = f"tables/{filename}"
+            storage_path = upload_to_supabase_storage(
+                supabase, local_filepath, remote_path
+            )
+
+            supabase.table("documents").update(
+                {
+                    "storage_path": storage_path,
+                }
+            ).eq("id", doc_id).execute()
 
             normalize_table(doc_id)
             extract_entities_from_table(doc_id)
 
         # Mark complete
-        supabase.table("documents").update({"status": "processed"}).eq("id", doc_id).execute()
+        supabase.table("documents").update({"status": "processed"}).eq(
+            "id", doc_id
+        ).execute()
         deduplicate_entities()
         backfill_embeddings()
         logger.info(f"Ingestion complete for doc {doc_id}")
 
     except Exception as e:
         logger.error(f"Ingestion failed for doc {doc_id}: {e}", exc_info=True)
-        supabase.table("documents").update({
-            "status": "failed",
-            "error_message": str(e),
-        }).eq("id", doc_id).execute()
+        supabase.table("documents").update(
+            {
+                "status": "failed",
+                "error_message": str(e),
+            }
+        ).eq("id", doc_id).execute()
 
     finally:
         if os.path.exists(local_filepath):
@@ -147,21 +170,23 @@ def _process_ingestion_background(doc_id: str, local_filepath: str, doc_type: st
             except Exception:
                 pass
 
+
 # ---------------------------------------------------------------------------
 #  Endpoints
 # ---------------------------------------------------------------------------
 
-@app.get("/health")
+
+@app.get("/api/health")
 def health_check():
     """Verify backend is running and healthy."""
     return {
         "status": "healthy",
         "service": "compliance-graphrag-backend",
-        "database": "unverified"
+        "database": "unverified",
     }
 
 
-@app.post("/upload")
+@app.post("/api/upload")
 async def upload_endpoint(
     background_tasks: BackgroundTasks,
     file: UploadFile = File(...),
@@ -173,11 +198,17 @@ async def upload_endpoint(
     doc_type = type if type in ("pdf", "audio", "table") else _infer_doc_type(filename)
 
     # Insert pending row
-    res = supabase.table("documents").insert({
-        "filename": filename,
-        "doc_type": doc_type,
-        "status": "pending",
-    }).execute()
+    res = (
+        supabase.table("documents")
+        .insert(
+            {
+                "filename": filename,
+                "doc_type": doc_type,
+                "status": "pending",
+            }
+        )
+        .execute()
+    )
     doc_id = res.data[0]["id"]
 
     # Save to temp folder
@@ -188,29 +219,38 @@ async def upload_endpoint(
     with open(local_path, "wb") as f:
         f.write(content)
 
-    background_tasks.add_task(_process_ingestion_background, doc_id, local_path, doc_type, filename)
+    background_tasks.add_task(
+        _process_ingestion_background, doc_id, local_path, doc_type, filename
+    )
 
     return {"id": doc_id, "filename": filename, "type": doc_type, "status": "pending"}
 
 
-@app.get("/documents")
+@app.get("/api/documents")
 def list_documents():
     """Return all ingested documents."""
     supabase = get_supabase_client()
-    res = supabase.table("documents").select("id, filename, doc_type, created_at, status").order("created_at", desc=True).execute()
+    res = (
+        supabase.table("documents")
+        .select("id, filename, doc_type, created_at, status")
+        .order("created_at", desc=True)
+        .execute()
+    )
     docs = []
-    for d in (res.data or []):
-        docs.append({
-            "id": d["id"],
-            "filename": d["filename"],
-            "type": d.get("doc_type", "pdf"),
-            "created_at": d.get("created_at", ""),
-            "status": _map_status(d.get("status", "completed")),
-        })
+    for d in res.data or []:
+        docs.append(
+            {
+                "id": d["id"],
+                "filename": d["filename"],
+                "type": d.get("doc_type", "pdf"),
+                "created_at": d.get("created_at", ""),
+                "status": _map_status(d.get("status", "completed")),
+            }
+        )
     return docs
 
 
-@app.get("/document/{doc_id}")
+@app.get("/api/document/{doc_id}")
 def get_document(doc_id: str):
     """Return document metadata plus its extracted entities and relationships."""
     supabase = get_supabase_client()
@@ -220,8 +260,20 @@ def get_document(doc_id: str):
         return {"error": "Document not found"}
     doc = doc_res.data[0]
 
-    ents = supabase.table("entities").select("id, name, type, source_doc_id, source_span, source_location").eq("source_doc_id", doc_id).execute()
-    rels = supabase.table("relationships").select("id, source_entity_id, target_entity_id, relation_type, source_doc_id, source_span, source_location").eq("source_doc_id", doc_id).execute()
+    ents = (
+        supabase.table("entities")
+        .select("id, name, type, source_doc_id, source_span, source_location")
+        .eq("source_doc_id", doc_id)
+        .execute()
+    )
+    rels = (
+        supabase.table("relationships")
+        .select(
+            "id, source_entity_id, target_entity_id, relation_type, source_doc_id, source_span, source_location"
+        )
+        .eq("source_doc_id", doc_id)
+        .execute()
+    )
 
     return {
         "id": doc["id"],
@@ -231,32 +283,77 @@ def get_document(doc_id: str):
         "status": _map_status(doc.get("status", "completed")),
         "content_text": doc.get("raw_text", ""),
         "extracted_entities": [
-            {"id": e["id"], "name": e["name"], "type": e["type"], "source_doc_id": e["source_doc_id"], "source_span": e.get("source_span", "")}
+            {
+                "id": e["id"],
+                "name": e["name"],
+                "type": e["type"],
+                "source_doc_id": e["source_doc_id"],
+                "source_span": e.get("source_span", ""),
+            }
             for e in (ents.data or [])
         ],
         "extracted_relationships": [
-            {"id": r["id"], "source_entity_id": r["source_entity_id"], "target_entity_id": r["target_entity_id"],
-             "relationship_type": r["relation_type"], "source_doc_id": r["source_doc_id"], "source_span": r.get("source_span", "")}
+            {
+                "id": r["id"],
+                "source_entity_id": r["source_entity_id"],
+                "target_entity_id": r["target_entity_id"],
+                "relationship_type": r["relation_type"],
+                "source_doc_id": r["source_doc_id"],
+                "source_span": r.get("source_span", ""),
+            }
             for r in (rels.data or [])
         ],
     }
 
 
-@app.get("/document/{doc_id}/status")
+@app.get("/api/document/{doc_id}/status")
 def get_document_status(doc_id: str):
     """Return live ingestion status for a document (polled by the frontend progress bar)."""
     supabase = get_supabase_client()
-    doc_res = supabase.table("documents").select("id, filename, doc_type, status, error_message").eq("id", doc_id).execute()
+    doc_res = (
+        supabase.table("documents")
+        .select("id, filename, doc_type, status, error_message")
+        .eq("id", doc_id)
+        .execute()
+    )
     if not doc_res.data:
-        return {"document_id": doc_id, "filename": "Unknown", "type": "pdf", "status": "failed", "progress_percent": 0}
+        return {
+            "document_id": doc_id,
+            "filename": "Unknown",
+            "type": "pdf",
+            "status": "failed",
+            "progress_percent": 0,
+        }
     doc = doc_res.data[0]
     mapped = _map_status(doc.get("status", "pending"))
 
-    progress = {"extracting": 50, "completed": 100, "failed": 100, "queued": 10, "parsing": 30}.get(mapped, 25)
+    progress = {
+        "extracting": 50,
+        "completed": 100,
+        "failed": 100,
+        "queued": 10,
+        "parsing": 30,
+    }.get(mapped, 25)
 
     # Count extracted data
-    ent_count = len((supabase.table("entities").select("id").eq("source_doc_id", doc_id).execute()).data or [])
-    rel_count = len((supabase.table("relationships").select("id").eq("source_doc_id", doc_id).execute()).data or [])
+    ent_count = len(
+        (
+            supabase.table("entities")
+            .select("id")
+            .eq("source_doc_id", doc_id)
+            .execute()
+        ).data
+        or []
+    )
+    rel_count = len(
+        (
+            supabase.table("relationships")
+            .select("id")
+            .eq("source_doc_id", doc_id)
+            .execute()
+        ).data
+        or []
+    )
 
     return {
         "document_id": doc["id"],
@@ -270,27 +367,49 @@ def get_document_status(doc_id: str):
     }
 
 
-@app.get("/graph")
+@app.get("/api/graph")
 def get_graph():
     """Return the full knowledge graph for the explorer UI."""
     supabase = get_supabase_client()
 
-    ents = supabase.table("entities").select("id, name, type, source_doc_id, source_span").execute()
-    rels = supabase.table("relationships").select("id, source_entity_id, target_entity_id, relation_type, source_doc_id, source_span").execute()
+    ents = (
+        supabase.table("entities")
+        .select("id, name, type, source_doc_id, source_span")
+        .execute()
+    )
+    rels = (
+        supabase.table("relationships")
+        .select(
+            "id, source_entity_id, target_entity_id, relation_type, source_doc_id, source_span"
+        )
+        .execute()
+    )
 
     nodes = [
-        {"id": e["id"], "name": e["name"], "type": e["type"], "source_doc_id": e.get("source_doc_id", ""), "source_span": e.get("source_span", "")}
+        {
+            "id": e["id"],
+            "name": e["name"],
+            "type": e["type"],
+            "source_doc_id": e.get("source_doc_id", ""),
+            "source_span": e.get("source_span", ""),
+        }
         for e in (ents.data or [])
     ]
     edges = [
-        {"id": r["id"], "source_entity_id": r["source_entity_id"], "target_entity_id": r["target_entity_id"],
-         "relationship_type": r["relation_type"], "source_doc_id": r.get("source_doc_id", ""), "source_span": r.get("source_span", "")}
+        {
+            "id": r["id"],
+            "source_entity_id": r["source_entity_id"],
+            "target_entity_id": r["target_entity_id"],
+            "relationship_type": r["relation_type"],
+            "source_doc_id": r.get("source_doc_id", ""),
+            "source_span": r.get("source_span", ""),
+        }
         for r in (rels.data or [])
     ]
     return {"nodes": nodes, "edges": edges}
 
 
-@app.post("/query")
+@app.post("/api/query")
 def query_endpoint(req: QueryRequest):
     """Execute the GraphRAG query pipeline and return answer + citations + subgraph."""
     try:
@@ -304,7 +423,7 @@ def query_endpoint(req: QueryRequest):
             "verified_answer": "",
             "citations": [],
             "status": "pending",
-            "error_message": None
+            "error_message": None,
         }
 
         final_state = query_graph.invoke(initial_state)
@@ -319,44 +438,57 @@ def query_endpoint(req: QueryRequest):
                 doc_type = "table"
             elif fn.endswith((".wav", ".mp3", ".m4a", ".ogg")):
                 doc_type = "audio"
-            frontend_citations.append({
-                "id": f"cit-{idx}",
-                "citation_index": idx + 1,
-                "source_doc_id": cit.get("source_doc_id") or "",
-                "source_span": cit.get("location") or "",
-                "snippet": cit.get("excerpt") or "",
-                "document_filename": fn,
-                "document_type": doc_type,
-            })
+            frontend_citations.append(
+                {
+                    "id": f"cit-{idx}",
+                    "citation_index": idx + 1,
+                    "source_doc_id": cit.get("source_doc_id") or "",
+                    "source_span": cit.get("location") or "",
+                    "snippet": cit.get("excerpt") or "",
+                    "document_filename": fn,
+                    "document_type": doc_type,
+                }
+            )
 
         # ---- Map subgraph to frontend schema ----
         sg = final_state.get("subgraph") or {"entities": [], "relationships": []}
         nodes = []
         for e in sg.get("entities", []):
-            nodes.append({
-                "id": e.get("entity_id") or e.get("id") or "",
-                "name": e.get("entity_name") or e.get("name") or "",
-                "type": e.get("entity_type") or e.get("type") or "",
-                "source_doc_id": e.get("entity_source_doc_id") or e.get("source_doc_id") or "",
-                "source_span": e.get("entity_source_span") or e.get("source_span") or e.get("entity_source_location") or "",
-            })
+            nodes.append(
+                {
+                    "id": e.get("entity_id") or e.get("id") or "",
+                    "name": e.get("entity_name") or e.get("name") or "",
+                    "type": e.get("entity_type") or e.get("type") or "",
+                    "source_doc_id": e.get("entity_source_doc_id")
+                    or e.get("source_doc_id")
+                    or "",
+                    "source_span": e.get("entity_source_span")
+                    or e.get("source_span")
+                    or e.get("entity_source_location")
+                    or "",
+                }
+            )
         edges = []
         for r in sg.get("relationships", []):
-            edges.append({
-                "id": r.get("id") or str(uuid.uuid4()),
-                "source_entity_id": r.get("source_entity_id") or "",
-                "target_entity_id": r.get("target_entity_id") or "",
-                "relationship_type": r.get("relation_type") or "",
-                "source_doc_id": r.get("source_doc_id") or "",
-                "source_span": r.get("source_span") or "",
-            })
+            edges.append(
+                {
+                    "id": r.get("id") or str(uuid.uuid4()),
+                    "source_entity_id": r.get("source_entity_id") or "",
+                    "target_entity_id": r.get("target_entity_id") or "",
+                    "relationship_type": r.get("relation_type") or "",
+                    "source_doc_id": r.get("source_doc_id") or "",
+                    "source_span": r.get("source_span") or "",
+                }
+            )
 
         return {
-            "answer": final_state.get("verified_answer") or final_state.get("raw_answer") or "",
+            "answer": final_state.get("verified_answer")
+            or final_state.get("raw_answer")
+            or "",
             "citations": frontend_citations,
             "subgraph": {"nodes": nodes, "edges": edges},
             "status": final_state.get("status") or "success",
-            "f1_score": final_state.get("f1_score") or 0.0
+            "f1_score": final_state.get("f1_score") or 0.0,
         }
     except Exception as e:
         return {
@@ -364,10 +496,11 @@ def query_endpoint(req: QueryRequest):
             "citations": [],
             "subgraph": {"nodes": [], "edges": []},
             "status": "failed",
-            "f1_score": 0.0
+            "f1_score": 0.0,
         }
 
 
 if __name__ == "__main__":
     import uvicorn
+
     uvicorn.run("main:app", host="0.0.0.0", port=8000, reload=True)
