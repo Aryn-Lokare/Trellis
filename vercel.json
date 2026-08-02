@@ -17,14 +17,6 @@
         "service": "backend",
         "path": "/backend/:path*"
       }
-    },
-    {
-      "source": "/:path*",
-      "destination": {
-        "type": "service",
-        "service": "frontend",
-        "path": "/:path*"
-      }
     }
   ]
 }
