@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="apps/frontend/public/Frame 38 (1).png" alt="Trellis" width="100%" />
+  <img src="E:\Trellis\apps\banner.png" alt="Trellis" width="100%" />
 </p>
 
 <p align="center">
@@ -32,13 +32,13 @@ Documents → Extraction → Knowledge Graph → Query → Cited Answer
 
 ## Tech Stack
 
-| Layer | Technology |
-|---|---|
+| Layer        | Technology                                                     |
+| ------------ | -------------------------------------------------------------- |
 | **Frontend** | Next.js 16, React 19, Tailwind CSS, Zustand, React Force Graph |
-| **Backend** | FastAPI, LangGraph, LangChain |
-| **Database** | Supabase PostgreSQL + pgvector |
-| **LLMs** | Google Gemini, Groq |
-| **Auth** | Supabase Auth |
+| **Backend**  | FastAPI, LangGraph, LangChain                                  |
+| **Database** | Supabase PostgreSQL + pgvector                                 |
+| **LLMs**     | Google Gemini, Groq                                            |
+| **Auth**     | Supabase Auth                                                  |
 
 <br />
 
@@ -114,4 +114,3 @@ apps/
 ## License
 
 MIT
-
