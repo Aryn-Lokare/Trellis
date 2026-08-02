@@ -53,6 +53,7 @@ export interface QueryResponse {
   answer: string;
   citations: Citation[];
   subgraph: Subgraph;
+  f1_score: number;
 }
 
 export interface IngestionStatus {

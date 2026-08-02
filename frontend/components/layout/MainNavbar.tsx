@@ -39,15 +39,15 @@ export function MainNavbar() {
 
   return (
     <header className={headerClass}>
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-4 h-20 flex items-center justify-between">
         {/* Brand / Logo */}
         <Link href={isMarketingRoute ? '/' : '/upload'} className="flex items-center group">
-          <div className="relative w-28 h-8 transition-transform group-hover:scale-105">
+          <div className="relative w-[100px] h-8 transition-transform group-hover:scale-105">
             <Image 
-              src="/trellis (1).png" 
+              src="/trellis (2).png" 
               alt="Trellis Logo" 
               fill
-              sizes="112px"
+              sizes="100px"
               priority
               className="object-contain"
             />

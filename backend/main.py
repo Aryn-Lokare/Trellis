@@ -15,7 +15,7 @@ from extractor import get_supabase_client
 logger = logging.getLogger("compliance-graphrag-api")
 
 app = FastAPI(
-    title="compliance-graphrag-backend",
+    title="compliance-grag-backend",
     description="Backend for the Multi-Modal Knowledge Graph Synthesis for Enterprise Compliance",
     version="0.1.0"
 )
@@ -356,13 +356,15 @@ def query_endpoint(req: QueryRequest):
             "citations": frontend_citations,
             "subgraph": {"nodes": nodes, "edges": edges},
             "status": final_state.get("status") or "success",
+            "f1_score": final_state.get("f1_score") or 0.0
         }
     except Exception as e:
         return {
             "answer": f"Error running query pipeline: {str(e)}",
             "citations": [],
             "subgraph": {"nodes": [], "edges": []},
-            "status": "failed"
+            "status": "failed",
+            "f1_score": 0.0
         }
 
 

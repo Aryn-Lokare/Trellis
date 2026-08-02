@@ -27,7 +27,6 @@ export default function GraphPage() {
       {/* Page Header */}
       <div className="border-b border-[#d9d9dd] pb-6 flex flex-col md:flex-row md:items-end justify-between gap-4">
         <div>
-          <span className="mono-label text-[#003c33]">STEP 3 OF 3 • VISUAL KNOWLEDGE GRAPH</span>
           <h1 className="text-4xl sm:text-5xl font-medium tracking-tight text-[#17171c] mt-1">
             Knowledge Subgraph Topology
           </h1>

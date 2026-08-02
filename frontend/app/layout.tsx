@@ -112,21 +112,15 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
           <footer className="border-t border-[#d9d9dd] py-6 bg-[#17171c] text-white">
             <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex flex-col sm:flex-row items-center justify-between gap-4 text-xs">
               <div className="flex items-center gap-2">
-                <div className="relative w-5 h-5">
+                <div className="relative w-20 h-6">
                   <Image 
-                    src="/trellis.png" 
+                    src="/trellis (1).png" 
                     alt="Trellis Logo" 
                     fill
-                    sizes="20px"
+                    sizes="80px"
                     className="object-contain"
                   />
                 </div>
-                <div className="mono-label text-[#93939f]">
-                  TRELLIS • COMPLIANCE GRAPHRAG DEMO
-                </div>
-              </div>
-              <div className="text-[#93939f]">
-                Cohere Editorial Control Framework • Multi-Modal RAG Pipeline
               </div>
             </div>
           </footer>

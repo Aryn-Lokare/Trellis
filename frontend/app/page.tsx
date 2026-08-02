@@ -25,11 +25,6 @@ export default function HomePage() {
       <div className="w-full hero-gradient">
         <section className="mx-auto max-w-7xl px-4 pb-20 pt-28 sm:px-6 sm:pb-32 sm:pt-36 lg:px-8">
           <div className="text-center flex flex-col items-center">
-            {/* Mono Label Accent */}
-            <span className="mono-label text-[11px] tracking-[0.2em] text-[#ff7759] bg-[#ff7759]/10 px-3.5 py-1 rounded-full border border-[#ff7759]/30 mb-8 animate-fade-in">
-              COMPLIANCE GRAPHRAG / THE TRUTHFUL SEARCH
-            </span>
-            
             {/* Display Headline */}
             <h1 className="max-w-4xl text-5xl font-normal leading-[0.95] tracking-[-0.04em] text-white sm:text-7xl lg:text-8xl font-display mb-8">
               Compliance answers you can trace, not guess.
@@ -47,7 +42,7 @@ export default function HomePage() {
                 <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-1 text-[#17171c]" />
               </Link>
               <Link 
-                href="https://github.com" 
+                href="https://github.com/Aryn-Lokare/Trellis" 
                 target="_blank" 
                 rel="noopener noreferrer" 
                 className="text-white hover:text-[#ff7759] text-sm font-mono tracking-wider flex items-center gap-1 group transition-colors hover:underline underline-offset-4"

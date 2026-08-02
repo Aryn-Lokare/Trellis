@@ -67,21 +67,21 @@ export function QuestionInputForm({ onSubmit, isLoading }: QuestionInputFormProp
       </form>
 
       {/* Suggested Hackathon Demo Questions */}
-      <div className="space-y-2">
-        <span className="mono-label text-[11px] text-[#93939f] block">
+      <div className="space-y-3 pt-4 border-t border-[#d9d9dd]/60">
+        <span className="mono-label text-[10px] text-[#93939f] block tracking-wider font-bold">
           SUGGESTED CROSS-DOCUMENT COMPLIANCE QUERIES:
         </span>
-        <div className="border-y border-[#d9d9dd] divide-y divide-[#d9d9dd]">
+        <div className="flex flex-col gap-1.5">
           {sampleQuestions.map((sq, idx) => (
             <button
               key={idx}
               type="button"
               onClick={() => handleSampleClick(sq)}
               disabled={isLoading}
-              className="w-full text-left text-xs text-[#212121] py-3 transition-colors hover:text-[#1863dc] cursor-pointer"
+              className="w-full text-left text-[13px] text-[#212121] py-3 px-4 transition-all duration-200 hover:bg-white hover:text-[#1863dc] cursor-pointer rounded-xl flex items-start gap-1 bg-white/30 border border-transparent hover:border-[#d9d9dd]"
             >
-              <span className="font-mono font-bold text-[#ff7759] mr-1.5">Q{idx + 1}.</span>
-              {sq}
+              <span className="font-mono font-bold text-[#ff7759] mr-2.5 shrink-0">Q{idx + 1}.</span>
+              <span className="flex-1 leading-relaxed font-sans">{sq}</span>
             </button>
           ))}
         </div>

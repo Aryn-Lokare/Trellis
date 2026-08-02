@@ -50,7 +50,6 @@ export default function UploadPage() {
       {/* Editorial Section Heading */}
       <div className="border-b border-[#d9d9dd] pb-6 flex flex-col md:flex-row md:items-end justify-between gap-4">
         <div>
-          <span className="mono-label text-[#ff7759]">STEP 1 OF 3 • MULTI-MODAL INGESTION</span>
           <h1 className="text-4xl sm:text-5xl font-medium tracking-tight text-[#17171c] mt-1">
             Ingest Evidence &amp; Build Graph
           </h1>

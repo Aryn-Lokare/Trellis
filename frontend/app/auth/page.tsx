@@ -68,10 +68,6 @@ export default function AuthPage() {
           <span className="mono-label text-[#ffad9b]">SECURE WORKSPACE ACCESS</span>
           <h1 className="mt-5 max-w-md text-4xl font-medium leading-tight tracking-tight sm:text-5xl">Enter the evidence workspace.</h1>
           <p className="mt-5 max-w-md text-base leading-relaxed text-white/70">Investigate compliance evidence with source-aware answers and visual graph context.</p>
-          <div className="mt-12 rounded-[8px] border border-white/15 bg-white/5 p-5">
-            <div className="flex items-center gap-2"><ShieldCheck className="h-4 w-4 text-[#ff7759]" /><span className="mono-label text-xs">SUPABASE AUTH + PROFILES</span></div>
-            <p className="mt-3 text-sm leading-relaxed text-white/65">Passwords are handled by Supabase Auth. Your email and display name are stored in the protected profile record.</p>
-          </div>
         </section>
 
         <section className="p-8 sm:p-12">

@@ -21,6 +21,7 @@ class QueryState(TypedDict):
     citations: List[Dict[str, Any]]
     status: str
     error_message: Optional[str]
+    f1_score: Optional[float]
 
 
 def embed_question_node(state: QueryState) -> Dict[str, Any]:
@@ -29,7 +30,7 @@ def embed_question_node(state: QueryState) -> Dict[str, Any]:
     api_key = os.environ.get("GEMINI_API_KEY")
     if not api_key:
         return {"error_message": "Missing GEMINI_API_KEY", "status": "failed"}
-        
+
     genai.configure(api_key=api_key)
     try:
         res = genai.embed_content(
@@ -59,7 +60,7 @@ def seed_search_node(state: QueryState) -> Dict[str, Any]:
             "match_threshold": 0.0,
             "match_count": 8
         }).execute()
-        
+
         matches = res.data or []
         if not matches:
             logger.info("No matching seed entities found above threshold.")
@@ -68,7 +69,7 @@ def seed_search_node(state: QueryState) -> Dict[str, Any]:
         seed_ids = [m["id"] for m in matches]
         logger.info(f"Found {len(seed_ids)} seed entities: {[m['name'] for m in matches]}")
         return {"seed_entity_ids": seed_ids, "status": "seeds_found"}
-        
+
     except Exception as e:
         logger.error(f"Error matching entities: {str(e)}")
         return {"status": "no_seed_match", "seed_entity_ids": []}
@@ -90,7 +91,7 @@ def graph_traversal_node(state: QueryState) -> Dict[str, Any]:
             "max_hops": 2,
             "max_entities": 50
         }).execute()
-        
+
         entities = traverse_res.data or []
         entity_ids = [e["entity_id"] for e in entities]
 
@@ -101,17 +102,17 @@ def graph_traversal_node(state: QueryState) -> Dict[str, Any]:
         rel_res = supabase.rpc("get_relationships_for_entities", {
             "entity_ids": entity_ids
         }).execute()
-        
+
         relationships = rel_res.data or []
         logger.info(f"Traversed subgraph: {len(entities)} entities, {len(relationships)} relationships.")
-        
+
         return {
             "subgraph": {
                 "entities": entities,
                 "relationships": relationships
             }
         }
-        
+
     except Exception as e:
         logger.error(f"Error during graph traversal: {str(e)}")
         return {"subgraph": {"entities": [], "relationships": []}, "error_message": str(e)}
@@ -129,16 +130,16 @@ def assemble_context_node(state: QueryState) -> Dict[str, Any]:
         logger.info("Running fallback context assembly (fuzzy name match)...")
         supabase = get_supabase_client()
         question = state["question"]
-        
+
         # Extract potential nouns from question for basic ILIKE matching
         keywords = [w.strip("?,.()\"'") for w in question.split() if len(w) > 4]
         fallback_entities = []
-        
+
         for kw in keywords[:3]:  # search up to 3 keywords
             res = supabase.table("entities").select("id, name, type, source_doc_id, source_span, source_location").ilike("name", f"%{kw}%").limit(5).execute()
             if res.data:
                 fallback_entities.extend(res.data)
-                
+
         if fallback_entities:
             # Deduplicate by entity ID
             seen_ids = set()
@@ -179,7 +180,7 @@ def assemble_context_node(state: QueryState) -> Dict[str, Any]:
         context_lines.append(f"- {name} ({ent_type}) [source: {loc}] (Context: \"{span}\")")
 
     context_lines.append("\n### Relevant Relationships:")
-    
+
     # Map entity IDs to names and hop distances
     ent_name_map = {}
     entity_hop_map = {}
@@ -231,7 +232,7 @@ def generate_answer_node(state: QueryState) -> Dict[str, Any]:
 
     import groq
     client = groq.Groq(api_key=api_key)
-    
+
     prompt = (
         "You are an expert enterprise compliance AI assistant.\n"
         "Your task is to answer the User Question using ONLY the provided Compliance Context below. "
@@ -257,11 +258,11 @@ def generate_answer_node(state: QueryState) -> Dict[str, Any]:
             temperature=0.0
         )
         raw_answer = response.choices[0].message.content.strip()
-        
+
         # Extract citation locations (e.g. from "[source: Page 1]" -> "Page 1")
         citations = re.findall(r"\[source:\s*([^\]]+)\]", raw_answer)
         citations_list = [{"location": loc.strip()} for loc in citations]
-        
+
         return {"raw_answer": raw_answer, "citations": citations_list, "status": "raw_answer_generated"}
     except Exception as e:
         logger.error(f"Failed to generate answer via Groq: {str(e)}")
@@ -273,9 +274,9 @@ def verify_citations_node(state: QueryState) -> Dict[str, Any]:
     logger.info("Verifying citations against retrieved context...")
     raw_answer = state.get("raw_answer") or ""
     subgraph = state.get("subgraph") or {"entities": [], "relationships": []}
-    
+
     if "I don't have enough information" in raw_answer:
-        return {"verified_answer": raw_answer, "citations": [], "status": "success"}
+        return {"verified_answer": raw_answer, "citations": [], "status": "success", "f1_score": 0.0}
 
     # Extract all valid locations from retrieved context
     valid_locations = set()
@@ -290,13 +291,13 @@ def verify_citations_node(state: QueryState) -> Dict[str, Any]:
 
     # Regular expression to match "[source: ...]"
     pattern = r"\[source:\s*([^\]]+)\]"
-    
+
     verified_answer = raw_answer
     resolved_citations = []
-    
+
     # We find all citation markers and verify them
     matches = list(re.finditer(pattern, raw_answer))
-    
+
     # Process matches in reverse order so replacements don't shift indices of subsequent matches
     offset_shift = 0
     status = "success"
@@ -311,31 +312,31 @@ def verify_citations_node(state: QueryState) -> Dict[str, Any]:
 
         # Citation validation check
         is_verified = normalized_loc in valid_locations
-        
+
         if not is_verified:
             logger.warning(f"Unverified citation found: '{location_text}'")
             status = "citation_warning"
             replacement = f"{original_citation} [UNVERIFIED]"
-            
+
             # Find index in verified_answer (accounting for previous replacements)
             start = match.start() + offset_shift
             end = match.end() + offset_shift
-            
+
             verified_answer = verified_answer[:start] + replacement + verified_answer[end:]
             offset_shift += len("[UNVERIFIED]") + 1
-        
+
         # Attempt to resolve source document info for the resolved list
         # Look up which document matches this location in the subgraph
         matching_doc_id = None
         matching_excerpt = ""
-        
+
         for ent in subgraph.get("entities", []):
             ent_loc = ent.get("entity_source_location") or ent.get("source_location")
             if ent_loc and ent_loc.strip().lower() == normalized_loc:
                 matching_doc_id = ent.get("entity_source_doc_id") or ent.get("source_doc_id")
                 matching_excerpt = ent.get("entity_source_span") or ent.get("source_span") or ""
                 break
-                
+
         if not matching_doc_id:
             for rel in subgraph.get("relationships", []):
                 rel_loc = rel.get("source_location")
@@ -343,7 +344,7 @@ def verify_citations_node(state: QueryState) -> Dict[str, Any]:
                     matching_doc_id = rel.get("source_doc_id")
                     matching_excerpt = rel.get("source_span") or ""
                     break
-        
+
         filename = "Unknown"
         if matching_doc_id:
             # Simple caching to save queries
@@ -361,10 +362,24 @@ def verify_citations_node(state: QueryState) -> Dict[str, Any]:
             "verified": is_verified
         })
 
+    # Compute F1 score based on citation verification
+    total_citations = len(resolved_citations)
+    verified_count = sum(1 for c in resolved_citations if c.get("verified") == True)
+    if total_citations > 0:
+        precision = verified_count / total_citations
+        recall = verified_count / total_citations  # assuming all citations should be verified
+        if precision + recall > 0:
+            f1 = 2 * precision * recall / (precision + recall)
+        else:
+            f1 = 0.0
+    else:
+        f1 = 0.0
+
     return {
         "verified_answer": verified_answer,
         "citations": resolved_citations,
-        "status": status
+        "status": status,
+        "f1_score": f1
     }
 
 
@@ -392,7 +407,7 @@ def build_query_graph() -> StateGraph:
 
     # Define edges
     workflow.add_edge("embed_question", "seed_search")
-    
+
     # Conditional routing after search
     workflow.add_conditional_edges(
         "seed_search",
@@ -402,7 +417,7 @@ def build_query_graph() -> StateGraph:
             "traversal": "graph_traversal"
         }
     )
-    
+
     workflow.add_edge("graph_traversal", "assemble_context")
     workflow.add_edge("assemble_context", "generate_answer")
     workflow.add_edge("generate_answer", "verify_citations")
