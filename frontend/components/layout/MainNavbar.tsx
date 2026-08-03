@@ -27,6 +27,7 @@ export function MainNavbar() {
 
   const isMarketingRoute = pathname === '/' || pathname === '/auth';
   const isHomepage = pathname === '/';
+  const logoSrc = isHomepage ? '/logo-white.png' : '/logo-black.png';
 
   const headerClass = isHomepage
     ? cn(
@@ -44,11 +45,11 @@ export function MainNavbar() {
         <Link href={isMarketingRoute ? '/' : '/upload'} className="flex items-center group">
           <div className="relative w-[100px] h-8 transition-transform group-hover:scale-105">
             <Image 
-              src="/trellis (2).png" 
+              src={logoSrc} 
               alt="Trellis Logo" 
               fill
               sizes="100px"
-              priority
+              priority = {isHomepage}
               className="object-contain"
             />
           </div>
