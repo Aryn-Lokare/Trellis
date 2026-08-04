@@ -1,91 +1,104 @@
 'use client';
 
 import React, { useState } from 'react';
-import { Sparkles, Loader2, ArrowRight } from 'lucide-react';
-import { Button } from '../ui/button';
+import { useRouter } from 'next/navigation';
+import { Plus, Command, Mic, ArrowUp, Loader2 } from 'lucide-react';
+import { cn } from '../../lib/utils';
 
 interface QuestionInputFormProps {
   onSubmit: (question: string) => void;
   isLoading: boolean;
+  layout?: 'landing' | 'compact';
+  initialValue?: string;
 }
 
-export function QuestionInputForm({ onSubmit, isLoading }: QuestionInputFormProps) {
-  const [question, setQuestion] = useState('');
-
-  const sampleQuestions = [
-    'Which vendor mentioned in this call recording has a flagged relationship in the compliance table, and what regulation does that violate?',
-    'Identify all non-compliant third-party systems referenced in the architectural schematic and their associated risk ratings.',
-    'What regulatory frameworks apply to the data retention policies outlined in the uploaded PDF and CSV tables?',
-  ];
+export function QuestionInputForm({
+  onSubmit,
+  isLoading,
+  layout = 'landing',
+  initialValue = '',
+}: QuestionInputFormProps) {
+  const [question, setQuestion] = useState(initialValue);
+  const router = useRouter();
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (!question.trim() || isLoading) return;
     onSubmit(question.trim());
+    setQuestion('');
   };
 
-  const handleSampleClick = (sample: string) => {
-    setQuestion(sample);
-    onSubmit(sample);
+  const handlePlusClick = () => {
+    router.push('/upload');
   };
 
   return (
-    <div className="space-y-4">
-      <form onSubmit={handleSubmit} className="relative">
-        <div className="relative flex items-center bg-white rounded-[22px] border border-[#d9d9dd] p-2 transition-all focus-within:border-[#1863dc] focus-within:ring-2 focus-within:ring-[#1863dc]/20">
-          <div className="pl-4 pr-2 text-[#ff7759]">
-            <Sparkles className="w-5 h-5" />
-          </div>
-          <input
-            type="text"
-            value={question}
-            onChange={(e) => setQuestion(e.target.value)}
-            placeholder="Ask a compliance question spanning call recordings, PDFs, tables & schematics..."
-            disabled={isLoading}
-            className="flex-1 py-3 px-2 text-base text-[#212121] bg-transparent border-none outline-none placeholder:text-[#93939f] font-sans"
-          />
-          <Button
-            type="submit"
-            disabled={!question.trim() || isLoading}
-            variant="primary"
-            size="md"
-            className="shrink-0"
+    <form onSubmit={handleSubmit} className="w-full">
+      <div
+        className={cn(
+          "relative flex items-center bg-[#f4f4f6]/90 backdrop-blur-md border border-neutral-200/80 rounded-full transition-all duration-300",
+          "focus-within:border-neutral-300 focus-within:bg-white focus-within:ring-4 focus-within:ring-neutral-200/40 focus-within:shadow-md",
+          layout === 'landing' ? 'p-2 sm:p-2.5 shadow-sm' : 'p-1.5 sm:p-2 shadow-sm'
+        )}
+      >
+        {/* Left Side Actions */}
+        <div className="flex items-center gap-1 pl-2.5 sm:pl-3">
+          {/* Plus Ingest Button */}
+          <button
+            type="button"
+            onClick={handlePlusClick}
+            className="group relative flex items-center justify-center w-8 h-8 rounded-full border border-neutral-300/60 bg-white text-neutral-600 hover:text-neutral-900 hover:border-neutral-400 hover:bg-neutral-50 active:scale-95 transition-all cursor-pointer"
+            title="Ingest Documents"
           >
-            {isLoading ? (
-              <>
-                <Loader2 className="w-4 h-4 animate-spin" />
-                <span>Searching Graph...</span>
-              </>
-            ) : (
-              <>
-                <span>Investigate</span>
-                <ArrowRight className="w-4 h-4" />
-              </>
-            )}
-          </Button>
+            <Plus className="w-4.5 h-4.5" />
+            {/* Tooltip */}
+            <span className="pointer-events-none absolute -top-10 left-1/2 -translate-x-1/2 scale-0 group-hover:scale-100 transition-all rounded bg-neutral-900 px-2.5 py-1 text-[10px] font-mono tracking-wider text-white whitespace-nowrap shadow-md z-50">
+              INGEST DOCUMENTS
+            </span>
+          </button>
         </div>
-      </form>
 
-      {/* Suggested Hackathon Demo Questions */}
-      <div className="space-y-3 pt-4 border-t border-[#d9d9dd]/60">
-        <span className="mono-label text-[10px] text-[#93939f] block tracking-wider font-bold">
-          SUGGESTED CROSS-DOCUMENT COMPLIANCE QUERIES:
-        </span>
-        <div className="flex flex-col gap-1.5">
-          {sampleQuestions.map((sq, idx) => (
+        {/* Input Field */}
+        <input
+          type="text"
+          value={question}
+          onChange={(e) => setQuestion(e.target.value)}
+          placeholder="Ask your queries to trellis"
+          disabled={isLoading}
+          className={cn(
+            "flex-1 bg-transparent border-none outline-none text-neutral-800 placeholder:text-neutral-400 font-sans mx-3 sm:mx-4 focus:ring-0 focus:outline-none",
+            layout === 'landing' ? 'text-base py-2.5' : 'text-sm py-1.5'
+          )}
+        />
+
+        {/* Right Side Actions */}
+        <div className="flex items-center gap-1.5 pr-1.5">
+
+          {/* Submit Button */}
+          {question.trim() ? (
             <button
-              key={idx}
-              type="button"
-              onClick={() => handleSampleClick(sq)}
+              type="submit"
               disabled={isLoading}
-              className="w-full text-left text-[13px] text-[#212121] py-3 px-4 transition-all duration-200 hover:bg-white hover:text-[#1863dc] cursor-pointer rounded-xl flex items-start gap-1 bg-white/30 border border-transparent hover:border-[#d9d9dd]"
+              className={cn(
+                "flex items-center justify-center rounded-full text-white bg-neutral-900 hover:bg-black transition-all active:scale-95 cursor-pointer shadow-sm shrink-0",
+                layout === 'landing' ? 'w-9 h-9' : 'w-8 h-8'
+              )}
             >
-              <span className="font-mono font-bold text-[#ff7759] mr-2.5 shrink-0">Q{idx + 1}.</span>
-              <span className="flex-1 leading-relaxed font-sans">{sq}</span>
+              {isLoading ? (
+                <Loader2 className="w-4.5 h-4.5 animate-spin" />
+              ) : (
+                <ArrowUp className="w-4.5 h-4.5" />
+              )}
             </button>
-          ))}
+          ) : (
+            isLoading && (
+              <div className="flex items-center justify-center w-8 h-8 text-neutral-600 shrink-0">
+                <Loader2 className="w-4.5 h-4.5 animate-spin" />
+              </div>
+            )
+          )}
         </div>
       </div>
-    </div>
+    </form>
   );
 }

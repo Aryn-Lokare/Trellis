@@ -114,7 +114,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
               <div className="flex items-center gap-2">
                 <div className="relative w-20 h-6">
                   <Image 
-                    src="/trellis (1).png" 
+                    src="/logo-white.png" 
                     alt="Trellis Logo" 
                     fill
                     sizes="80px"
