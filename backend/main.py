@@ -424,6 +424,8 @@ def query_endpoint(req: QueryRequest):
             "citations": [],
             "status": "pending",
             "error_message": None,
+            "retry_count": 0,
+            "feedback_notes": "",
         }
 
         final_state = query_graph.invoke(initial_state)
@@ -447,6 +449,7 @@ def query_endpoint(req: QueryRequest):
                     "snippet": cit.get("excerpt") or "",
                     "document_filename": fn,
                     "document_type": doc_type,
+                    "verified": cit.get("verified", False),
                 }
             )
 

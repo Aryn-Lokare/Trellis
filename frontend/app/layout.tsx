@@ -7,6 +7,7 @@ import { Space_Grotesk, Inter } from 'next/font/google';
 import Image from 'next/image';
 import Lenis from 'lenis';
 import { MainNavbar } from '../components/layout/MainNavbar';
+import { MainSidebar } from '../components/layout/MainSidebar';
 import { CitationSourcePanel } from '../components/citations/CitationSourcePanel';
 import { isSupabaseConfigured, supabase } from '../lib/supabase';
 import './globals.css';
@@ -104,26 +105,39 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
       </head>
       <body className="min-h-screen bg-white text-[#212121] flex flex-col font-sans">
         <QueryClientProvider client={queryClient}>
-          <MainNavbar />
-          <main className={isMarketingRoute ? 'flex-1' : 'flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-8'}>
-            {isMarketingRoute || authReady ? children : <div className="py-24 text-center"><span className="mono-label text-[#616161]">VERIFYING SECURE SESSION</span></div>}
-          </main>
-          {!isMarketingRoute && <CitationSourcePanel />}
-          <footer className="border-t border-[#d9d9dd] py-6 bg-[#17171c] text-white">
-            <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex flex-col sm:flex-row items-center justify-between gap-4 text-xs">
-              <div className="flex items-center gap-2">
-                <div className="relative w-20 h-6">
-                  <Image 
-                    src="/logo-white.png" 
-                    alt="Trellis Logo" 
-                    fill
-                    sizes="80px"
-                    className="object-contain"
-                  />
+          {isMarketingRoute ? (
+            <>
+              <MainNavbar />
+              <main className="flex-1">
+                {children}
+              </main>
+              <footer className="border-t border-[#d9d9dd] py-6 bg-[#17171c] text-white">
+                <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex flex-col sm:flex-row items-center justify-between gap-4 text-xs">
+                  <div className="flex items-center gap-2">
+                    <div className="relative w-20 h-6">
+                      <Image 
+                        src="/logo-white.png" 
+                        alt="Trellis Logo" 
+                        fill
+                        sizes="80px"
+                        className="object-contain"
+                      />
+                    </div>
+                  </div>
                 </div>
+              </footer>
+            </>
+          ) : (
+            <div className="flex min-h-screen w-full">
+              <MainSidebar />
+              <div className="flex-1 flex flex-col min-w-0 pl-64">
+                <main className="flex-1 w-full px-6 sm:px-8 py-8 bg-[#fafafa]">
+                  {authReady ? children : <div className="py-24 text-center"><span className="mono-label text-[#616161]">VERIFYING SECURE SESSION</span></div>}
+                </main>
               </div>
             </div>
-          </footer>
+          )}
+          {!isMarketingRoute && <CitationSourcePanel />}
         </QueryClientProvider>
       </body>
     </html>

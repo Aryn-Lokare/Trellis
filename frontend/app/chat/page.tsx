@@ -134,6 +134,7 @@ export default function ChatPage() {
             width={100}
             height={32}
             className="object-contain"
+            style={{ height: 'auto' }}
           />
           <span className="text-neutral-400">|</span>
           <span className="text-xs font-semibold text-neutral-600 font-mono">INVESTIGATION</span>

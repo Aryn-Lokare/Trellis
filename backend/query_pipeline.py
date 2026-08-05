@@ -22,6 +22,8 @@ class QueryState(TypedDict):
     status: str
     error_message: Optional[str]
     f1_score: Optional[float]
+    retry_count: Optional[int]
+    feedback_notes: Optional[str]
 
 
 def embed_question_node(state: QueryState) -> Dict[str, Any]:
@@ -57,8 +59,8 @@ def seed_search_node(state: QueryState) -> Dict[str, Any]:
         # Match entities using custom pgvector similarity search RPC
         res = supabase.rpc("match_entities", {
             "query_embedding": embedding,
-            "match_threshold": 0.0,
-            "match_count": 8
+            "match_threshold": 0.35,
+            "match_count": 10
         }).execute()
 
         matches = res.data or []
@@ -233,6 +235,16 @@ def generate_answer_node(state: QueryState) -> Dict[str, Any]:
     import groq
     client = groq.Groq(api_key=api_key)
 
+    feedback = state.get("feedback_notes") or ""
+    retry_prompt = ""
+    if feedback:
+        retry_prompt = (
+            "\n\nCRITICAL CORRECTION (PREVIOUS ATTEMPT ISSUES):\n"
+            "Your previous attempt had the following citation verification errors. You must correct these in your new response:\n"
+            f"{feedback}\n"
+            "Ensure that any citations you list strictly correspond to source locations from the Compliance Context. Do NOT use the unverified locations."
+        )
+
     prompt = (
         "You are an expert enterprise compliance AI assistant.\n"
         "Your task is to answer the User Question using ONLY the provided Compliance Context below. "
@@ -245,7 +257,7 @@ def generate_answer_node(state: QueryState) -> Dict[str, Any]:
         "\"I don't have enough information to answer this based on the retrieved compliance graph.\"\n"
         "3. Do not formulate answers that aren't directly supported by the context.\n\n"
         f"Compliance Context:\n{state['synthesized_context']}\n\n"
-        f"User Question: {state['question']}\n\n"
+        f"User Question: {state['question']}{retry_prompt}\n\n"
         "Answer:"
     )
 
@@ -274,9 +286,17 @@ def verify_citations_node(state: QueryState) -> Dict[str, Any]:
     logger.info("Verifying citations against retrieved context...")
     raw_answer = state.get("raw_answer") or ""
     subgraph = state.get("subgraph") or {"entities": [], "relationships": []}
+    retry_count = state.get("retry_count") or 0
 
     if "I don't have enough information" in raw_answer:
-        return {"verified_answer": raw_answer, "citations": [], "status": "success", "f1_score": 0.0}
+        return {
+            "verified_answer": raw_answer,
+            "citations": [],
+            "status": "success",
+            "f1_score": 0.0,
+            "retry_count": retry_count,
+            "feedback_notes": "",
+        }
 
     # Extract all valid locations from retrieved context
     valid_locations = set()
@@ -294,6 +314,7 @@ def verify_citations_node(state: QueryState) -> Dict[str, Any]:
 
     verified_answer = raw_answer
     resolved_citations = []
+    unverified_citations = []
 
     # We find all citation markers and verify them
     matches = list(re.finditer(pattern, raw_answer))
@@ -315,6 +336,7 @@ def verify_citations_node(state: QueryState) -> Dict[str, Any]:
 
         if not is_verified:
             logger.warning(f"Unverified citation found: '{location_text}'")
+            unverified_citations.append(location_text)
             status = "citation_warning"
             replacement = f"{original_citation} [UNVERIFIED]"
 
@@ -375,11 +397,24 @@ def verify_citations_node(state: QueryState) -> Dict[str, Any]:
     else:
         f1 = 0.0
 
+    # Determine if retry is needed
+    new_retry_count = retry_count
+    feedback_notes = ""
+    if len(unverified_citations) > 0 and retry_count < 2:
+        new_retry_count += 1
+        feedback_notes = (
+            "The following citation locations you used were NOT found in the retrieved compliance graph and are invalid:\n"
+            + "\n".join(f"- '{loc}'" for loc in unverified_citations)
+        )
+        status = "retry_needed"
+
     return {
         "verified_answer": verified_answer,
         "citations": resolved_citations,
         "status": status,
-        "f1_score": f1
+        "f1_score": f1,
+        "retry_count": new_retry_count,
+        "feedback_notes": feedback_notes,
     }
 
 
@@ -388,6 +423,14 @@ def route_after_search(state: QueryState) -> str:
     if state.get("status") == "no_seed_match":
         return "fallback"
     return "traversal"
+
+
+def route_after_verification(state: QueryState) -> str:
+    """Routes the graph: back to generation if retry is needed, else to END."""
+    if state.get("status") == "retry_needed":
+        logger.info(f"Unverified citations detected. Routing back to generation. Attempt {state.get('retry_count') or 1}...")
+        return "retry"
+    return "end"
 
 
 # Define LangGraph State Graph
@@ -421,6 +464,15 @@ def build_query_graph() -> StateGraph:
     workflow.add_edge("graph_traversal", "assemble_context")
     workflow.add_edge("assemble_context", "generate_answer")
     workflow.add_edge("generate_answer", "verify_citations")
-    workflow.add_edge("verify_citations", END)
+    
+    # Conditional routing after verification (feedback loop)
+    workflow.add_conditional_edges(
+        "verify_citations",
+        route_after_verification,
+        {
+            "retry": "generate_answer",
+            "end": END
+        }
+    )
 
     return workflow.compile()

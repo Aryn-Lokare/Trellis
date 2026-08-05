@@ -6,6 +6,7 @@ import { Entity, Relationship, Subgraph } from '../../types';
 import { getEntityTypeColor } from '../../lib/theme';
 import { useComplianceStore } from '../../store/useComplianceStore';
 import { GitFork, Layers, RotateCcw } from 'lucide-react';
+import { cn } from '../../lib/utils';
 
 const ForceGraph2D = dynamic<any>(
   () => import('react-force-graph-2d').then((mod) => mod.default || mod),
@@ -22,9 +23,10 @@ const ForceGraph2D = dynamic<any>(
 interface SubgraphCanvasProps {
   graphData: Subgraph;
   filterType?: string | null;
+  height?: string;
 }
 
-export function SubgraphCanvas({ graphData, filterType }: SubgraphCanvasProps) {
+export function SubgraphCanvas({ graphData, filterType, height }: SubgraphCanvasProps) {
   const fgRef = useRef<any>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   const [dimensions, setDimensions] = useState({ width: 800, height: 600 });
@@ -89,7 +91,7 @@ export function SubgraphCanvas({ graphData, filterType }: SubgraphCanvasProps) {
   return (
     <div
       ref={containerRef}
-      className="relative w-full h-[650px] bg-[#071829] rounded-[22px] border border-[#003c33] overflow-hidden shadow-2xl"
+      className={cn("relative w-full bg-[#071829] rounded-[22px] border border-[#003c33] overflow-hidden shadow-2xl", height || "h-[650px]")}
     >
       <div className="absolute top-4 left-4 z-10 bg-[#17171c]/90 backdrop-blur border border-white/10 px-4 py-2 rounded-full flex items-center gap-3 text-white">
         <GitFork className="w-4 h-4 text-[#ff7759]" />

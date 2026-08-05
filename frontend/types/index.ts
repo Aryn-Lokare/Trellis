@@ -42,6 +42,7 @@ export interface Citation {
   snippet: string;
   document_filename?: string;
   document_type?: DocumentType;
+  verified?: boolean;
 }
 
 export interface Subgraph {

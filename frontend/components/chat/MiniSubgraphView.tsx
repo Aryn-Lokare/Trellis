@@ -7,6 +7,7 @@ import { Badge } from '../ui/badge';
 import { GitFork, ArrowUpRight, Link2 } from 'lucide-react';
 import { useComplianceStore } from '../../store/useComplianceStore';
 import { cn } from '../../lib/utils';
+import { SubgraphCanvas } from '../graph/SubgraphCanvas';
 
 interface MiniSubgraphViewProps {
   subgraph: Subgraph;
@@ -54,14 +55,11 @@ export function MiniSubgraphView({ subgraph }: MiniSubgraphViewProps) {
             REASONING SUBGRAPH EXTRACTED
           </span>
         </div>
-        <Link
-          href="/graph"
-          onClick={handleDeepLink}
-          className="inline-flex items-center gap-1 text-xs font-mono text-[#ffad9b] hover:text-white transition-colors group"
-        >
-          <span>Full Interactive Graph</span>
-          <ArrowUpRight className="w-3.5 h-3.5 transition-transform group-hover:translate-x-0.5 group-hover:-translate-y-0.5" />
-        </Link>
+      </div>
+
+      {/* Embedded Dynamic Interactive Force Graph */}
+      <div className="w-full overflow-hidden rounded-[16px] border border-white/10 shadow-inner">
+        <SubgraphCanvas graphData={subgraph} height="h-[380px]" />
       </div>
 
       {/* Nodes / Entities Strip */}
