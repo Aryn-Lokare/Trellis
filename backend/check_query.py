@@ -17,6 +17,8 @@ def run_diagnostic():
     
     initial_state = {
         "question": question,
+        "history": None,
+        "standalone_question": None,
         "question_embedding": None,
         "seed_entity_ids": [],
         "subgraph": {"entities": [], "relationships": []},

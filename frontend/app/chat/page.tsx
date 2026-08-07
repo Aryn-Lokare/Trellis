@@ -4,7 +4,7 @@ import React, { useState } from 'react';
 import { QuestionInputForm } from '../../components/chat/QuestionInputForm';
 import { ChatMessageBubble } from '../../components/chat/ChatMessageBubble';
 import { useQuerySubmission } from '../../hooks/useQuery';
-import { QueryResponse } from '../../types';
+import { QueryResponse, ChatMessage } from '../../types';
 import { 
   MessageSquareText, 
   Loader2, 
@@ -33,7 +33,14 @@ export default function ChatPage() {
   const handleQuerySubmit = async (question: string) => {
     setActiveQuestion(question);
     try {
-      const response = await queryMutation.mutateAsync(question);
+      // Map existing history items to ChatMessage format
+      const chatHistory: ChatMessage[] = [];
+      history.forEach((item) => {
+        chatHistory.push({ role: 'user', content: item.question });
+        chatHistory.push({ role: 'assistant', content: item.response.answer });
+      });
+
+      const response = await queryMutation.mutateAsync({ question, history: chatHistory });
       if (response) {
         setHistory((prev) => [
           ...prev,

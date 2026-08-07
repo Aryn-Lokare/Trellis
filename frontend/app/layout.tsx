@@ -97,10 +97,10 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
   return (
     <html lang="en" className={`${spaceGrotesk.variable} ${inter.variable}`}>
       <head>
-        <title>Compliance GraphRAG — Enterprise AI Platform</title>
+        <title>trellis - compliance multi-modal RAG and knowledge graph</title>
         <meta
           name="description"
-          content="Multi-modal compliance evidence ingestion, cited RAG reasoning, and visual knowledge subgraph analysis."
+          content="Trellis ingests your PDFs, audio logs, spreadsheets to build a unified compliance knowledge graph. Get precise, accurate answers grounded in real connections—backed by exact document, page, and timestamp citations."
         />
       </head>
       <body className="min-h-screen bg-white text-[#212121] flex flex-col font-sans">

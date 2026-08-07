@@ -12,6 +12,8 @@ logger = logging.getLogger("compliance-graphrag-query")
 # Define state schema
 class QueryState(TypedDict):
     question: str
+    history: Optional[List[Dict[str, str]]]
+    standalone_question: Optional[str]
     question_embedding: Optional[List[float]]
     seed_entity_ids: List[str]
     subgraph: Dict[str, Any]  # {"entities": [...], "relationships": [...]}
@@ -26,9 +28,59 @@ class QueryState(TypedDict):
     feedback_notes: Optional[str]
 
 
+def condense_question_node(state: QueryState) -> Dict[str, Any]:
+    """Uses Groq to condense/rewrite the follow-up question based on conversation history."""
+    history = state.get("history")
+    question = state.get("question")
+
+    if not history:
+        logger.info("No conversation history. Using original question as standalone.")
+        return {"standalone_question": question}
+
+    logger.info("Condensing question using conversation history...")
+    api_key = os.environ.get("GROQ_API_KEY")
+    if not api_key:
+        return {"standalone_question": question}
+
+    import groq
+    client = groq.Groq(api_key=api_key)
+
+    formatted_history = []
+    for msg in history:
+        role_label = "User" if msg.get("role") == "user" else "Assistant"
+        formatted_history.append(f"{role_label}: {msg.get('content')}")
+    history_str = "\n".join(formatted_history)
+
+    prompt = (
+        "You are an expert search query generator.\n"
+        "Given the conversation history and a follow-up question from the user, rewrite the follow-up question into a single, standalone question. "
+        "The standalone question must contain all the necessary context from the conversation history so that it can be used on its own for vector database and knowledge graph retrieval. "
+        "Do NOT answer the question. Do NOT include any intro or outro text. Return ONLY the rewritten standalone question.\n\n"
+        f"Conversation History:\n{history_str}\n\n"
+        f"Follow-up Question: {question}\n\n"
+        "Standalone Question:"
+    )
+
+    try:
+        response = client.chat.completions.create(
+            model="llama-3.3-70b-versatile",
+            messages=[
+                {"role": "user", "content": prompt}
+            ],
+            temperature=0.0
+        )
+        standalone = response.choices[0].message.content.strip()
+        logger.info(f"Original: {question} -> Standalone: {standalone}")
+        return {"standalone_question": standalone}
+    except Exception as e:
+        logger.error(f"Failed to condense question: {str(e)}")
+        return {"standalone_question": question}
+
+
 def embed_question_node(state: QueryState) -> Dict[str, Any]:
-    """Generates the 768-dimensional embedding for the user's question."""
-    logger.info(f"Generating embedding for question: {state['question']}")
+    """Generates the 768-dimensional embedding for the standalone or user's question."""
+    q_to_embed = state.get("standalone_question") or state["question"]
+    logger.info(f"Generating embedding for question: {q_to_embed}")
     api_key = os.environ.get("GEMINI_API_KEY")
     if not api_key:
         return {"error_message": "Missing GEMINI_API_KEY", "status": "failed"}
@@ -37,7 +89,7 @@ def embed_question_node(state: QueryState) -> Dict[str, Any]:
     try:
         res = genai.embed_content(
             model="models/gemini-embedding-2",
-            content=state["question"],
+            content=q_to_embed,
             task_type="retrieval_query",
             output_dimensionality=768
         )
@@ -59,7 +111,7 @@ def seed_search_node(state: QueryState) -> Dict[str, Any]:
         # Match entities using custom pgvector similarity search RPC
         res = supabase.rpc("match_entities", {
             "query_embedding": embedding,
-            "match_threshold": 0.35,
+            "match_threshold": 0.30,
             "match_count": 10
         }).execute()
 
@@ -131,7 +183,7 @@ def assemble_context_node(state: QueryState) -> Dict[str, Any]:
     if status == "no_seed_match" or not entities:
         logger.info("Running fallback context assembly (fuzzy name match)...")
         supabase = get_supabase_client()
-        question = state["question"]
+        question = state.get("standalone_question") or state["question"]
 
         # Extract potential nouns from question for basic ILIKE matching
         keywords = [w.strip("?,.()\"'") for w in question.split() if len(w) > 4]
@@ -167,7 +219,7 @@ def assemble_context_node(state: QueryState) -> Dict[str, Any]:
             logger.info(f"Fallback matched {len(entities)} entities and {len(relationships)} relationships.")
         else:
             return {
-                "synthesized_context": "Insufficient information in the knowledge graph to answer this question.",
+                "synthesized_context": "No matching entities were found in the knowledge graph.",
                 "status": "fallback_insufficient"
             }
 
@@ -245,18 +297,28 @@ def generate_answer_node(state: QueryState) -> Dict[str, Any]:
             "Ensure that any citations you list strictly correspond to source locations from the Compliance Context. Do NOT use the unverified locations."
         )
 
+    # Format history if present
+    history = state.get("history")
+    history_context = ""
+    if history:
+        formatted_history = []
+        for msg in history:
+            role_label = "User" if msg.get("role") == "user" else "Assistant"
+            formatted_history.append(f"{role_label}: {msg.get('content')}")
+        history_context = "\nConversation History:\n" + "\n".join(formatted_history) + "\n"
+
     prompt = (
         "You are an expert enterprise compliance AI assistant.\n"
-        "Your task is to answer the User Question using ONLY the provided Compliance Context below. "
-        "Do NOT use outside knowledge, do NOT make assumptions, and do NOT extrapolate.\n\n"
+        "Your task is to answer the User Question. Ground your response in the provided Compliance Context below where possible. "
+        "If the context is insufficient, use your general compliance expert knowledge to provide a comprehensive, accurate, and helpful response. Do not say 'I don't have enough information' or refuse to answer.\n\n"
         "RULES:\n"
-        "1. Every factual claim or relation you state MUST include an inline citation marker "
+        "1. For any factual claim or relation you state that IS directly supported by the provided Compliance Context, you MUST include an inline citation marker "
         "at the end of the sentence matching the exact source location provided in the context, "
         "formatted exactly like '[source: Page X]', '[source: 01:15]', or '[source: row Y]'.\n"
-        "2. If the context does not contain sufficient information to answer the question, state exactly: "
-        "\"I don't have enough information to answer this based on the retrieved compliance graph.\"\n"
-        "3. Do not formulate answers that aren't directly supported by the context.\n\n"
-        f"Compliance Context:\n{state['synthesized_context']}\n\n"
+        "2. Do not include a citation marker for any statements that are derived from your general knowledge rather than the provided context.\n"
+        "3. Always answer the question directly. Do not state that you don't know or don't have information.\n\n"
+        f"Compliance Context:\n{state['synthesized_context']}\n"
+        f"{history_context}\n"
         f"User Question: {state['question']}{retry_prompt}\n\n"
         "Answer:"
     )
@@ -438,6 +500,7 @@ def build_query_graph() -> StateGraph:
     workflow = StateGraph(QueryState)
 
     # Add Nodes
+    workflow.add_node("condense_question", condense_question_node)
     workflow.add_node("embed_question", embed_question_node)
     workflow.add_node("seed_search", seed_search_node)
     workflow.add_node("graph_traversal", graph_traversal_node)
@@ -446,9 +509,10 @@ def build_query_graph() -> StateGraph:
     workflow.add_node("verify_citations", verify_citations_node)
 
     # Set Entry Point
-    workflow.set_entry_point("embed_question")
+    workflow.set_entry_point("condense_question")
 
     # Define edges
+    workflow.add_edge("condense_question", "embed_question")
     workflow.add_edge("embed_question", "seed_search")
 
     # Conditional routing after search

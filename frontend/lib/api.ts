@@ -6,6 +6,7 @@ import {
   IngestionStatus,
   QueryResponse,
   Subgraph,
+  ChatMessage,
 } from '../types';
 
 const API_BASE_URL =
@@ -55,9 +56,10 @@ export const api = {
    * Submit a natural-language compliance question
    * POST /query
    */
-  async submitQuery(question: string): Promise<QueryResponse> {
+  async submitQuery(question: string, history?: ChatMessage[]): Promise<QueryResponse> {
     const response = await apiClient.post<QueryResponse>('/backend/query', {
       question,
+      history,
     });
     return response.data;
   },

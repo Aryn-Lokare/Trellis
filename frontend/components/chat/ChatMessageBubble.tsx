@@ -67,7 +67,10 @@ export function ChatMessageBubble({ question, response }: ChatMessageBubbleProps
   };
 
   const f1 = response.f1_score ?? 1.0;
-  const hallucinationRate = Math.max(0, Math.min(100, Math.round((1.0 - f1) * 100)));
+  const hallucinationRate =
+    !response.citations || response.citations.length === 0
+      ? 0
+      : Math.max(0, Math.min(100, Math.round((1.0 - f1) * 100)));
 
   // F1 diagnostic score styling
   const getF1Style = (score: number) => {

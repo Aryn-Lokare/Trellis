@@ -85,3 +85,8 @@ export interface HealthResponse {
   timestamp?: string;
   services?: Record<string, string>;
 }
+
+export interface ChatMessage {
+  role: 'user' | 'assistant';
+  content: string;
+}

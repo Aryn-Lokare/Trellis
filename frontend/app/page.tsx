@@ -32,7 +32,7 @@ export default function HomePage() {
             
             {/* Subheadline */}
             <p className="max-w-2xl text-lg leading-relaxed text-white/70 mb-10">
-              Trellis ingests your PDFs, audio logs, spreadsheets, and diagrams to build a unified compliance knowledge graph. Get precise, accurate answers grounded in real connections—backed by exact document, page, and timestamp citations.
+              Trellis ingests your PDFs, audio logs, spreadsheets to build a unified compliance knowledge graph. Get precise, accurate answers grounded in real connections—backed by exact document, page, and timestamp citations.
             </p>
             
             {/* CTAs */}

@@ -14,6 +14,9 @@ from extractor import get_supabase_client
 
 logger = logging.getLogger("compliance-graphrag-api")
 
+
+
+
 app = FastAPI(
     title="compliance-grag-backend",
     description="Backend for the Multi-Modal Knowledge Graph Synthesis for Enterprise Compliance",
@@ -30,8 +33,14 @@ app.add_middleware(
 )
 
 
+class ChatMessage(BaseModel):
+    role: str
+    content: str
+
+
 class QueryRequest(BaseModel):
     question: str
+    history: Optional[List[ChatMessage]] = None
 
 
 # Instantiate the compiled LangGraph query pipeline
@@ -413,8 +422,19 @@ def get_graph():
 def query_endpoint(req: QueryRequest):
     """Execute the GraphRAG query pipeline and return answer + citations + subgraph."""
     try:
+        # Convert history models to list of dicts for LangGraph
+        history_dicts = []
+        if req.history:
+            for m in req.history:
+                history_dicts.append({
+                    "role": m.role,
+                    "content": m.content
+                })
+
         initial_state = {
             "question": req.question,
+            "history": history_dicts,
+            "standalone_question": None,
             "question_embedding": None,
             "seed_entity_ids": [],
             "subgraph": {"entities": [], "relationships": []},

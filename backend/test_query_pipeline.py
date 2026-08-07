@@ -160,6 +160,8 @@ def run_query_test_suite():
 
         initial_state = {
             "question": sc["question"],
+            "history": None,
+            "standalone_question": None,
             "question_embedding": None,
             "seed_entity_ids": [],
             "subgraph": {"entities": [], "relationships": []},

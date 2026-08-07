@@ -14,7 +14,6 @@ import {
   Mic,
   Play,
   Pause,
-  User,
 } from 'lucide-react';
 import { Button } from '../ui/button';
 import { DocumentType } from '../../types';
@@ -364,8 +363,6 @@ export function DropzoneCard({ onUpload, isUploading, uploadError }: DropzoneCar
   const [attachments, setAttachments] = useState<LocalAttachment[]>([]);
   const [showWebInput, setShowWebInput] = useState(false);
   const [webUrl, setWebUrl] = useState('');
-  const [tags, setTags] = useState<string[]>(['@xchyler', '@smintify', '@elonmusk', '@fervor']);
-  const [newTag, setNewTag] = useState('');
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const addFiles = (fileList: FileList) => {
@@ -436,22 +433,6 @@ export function DropzoneCard({ onUpload, isUploading, uploadError }: DropzoneCar
     setShowWebInput(false);
   };
 
-  const handleAddTag = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!newTag.trim()) return;
-    let formatted = newTag.trim();
-    if (!formatted.startsWith('@')) {
-      formatted = `@${formatted}`;
-    }
-    if (!tags.includes(formatted)) {
-      setTags((prev) => [...prev, formatted]);
-    }
-    setNewTag('');
-  };
-
-  const handleRemoveTag = (tagToRemove: string) => {
-    setTags((prev) => prev.filter((t) => t !== tagToRemove));
-  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -639,48 +620,6 @@ export function DropzoneCard({ onUpload, isUploading, uploadError }: DropzoneCar
         </div>
       )}
 
-      {/* Profile Chips/Tags Section */}
-      <div className="pt-4 border-t border-[#f1f2f5] space-y-3">
-        <div className="flex items-center justify-between">
-          <label className="mono-label text-[#71717a] font-semibold block">Assignees &amp; Tags:</label>
-          <form onSubmit={handleAddTag} className="flex gap-1.5">
-            <input
-              type="text"
-              placeholder="Add tag (e.g. @username)..."
-              value={newTag}
-              onChange={(e) => setNewTag(e.target.value)}
-              className="text-xs bg-white border border-[#d9d9dd] rounded-lg px-2.5 py-1.5 text-[#212121] focus:outline-none focus:ring-1 focus:ring-[#1863dc]"
-            />
-            <button
-              type="submit"
-              className="text-xs font-semibold bg-[#17171c] hover:bg-black text-white px-3 py-1.5 rounded-lg cursor-pointer transition-colors"
-            >
-              Add
-            </button>
-          </form>
-        </div>
-
-        <div className="flex flex-wrap gap-2.5">
-          {tags.map((tag) => (
-            <div
-              key={tag}
-              className="inline-flex items-center gap-2 bg-[#f9f9fb] border border-[#eef0f3] rounded-full pl-1.5 pr-2.5 py-1 text-xs text-[#17171c] font-medium shadow-sm transition-all hover:bg-[#f1f2f5] hover:border-[#d9d9dd]"
-            >
-              <div className="w-5 h-5 rounded-full bg-white border border-[#eef0f3] flex items-center justify-center shrink-0">
-                <User className="w-3 h-3 text-[#93939f]" />
-              </div>
-              <span>{tag}</span>
-              <button
-                type="button"
-                onClick={() => handleRemoveTag(tag)}
-                className="w-4 h-4 rounded-full flex items-center justify-center text-[#71717a] hover:bg-red-50 hover:text-red-500 transition-colors ml-0.5 cursor-pointer"
-              >
-                <X className="w-2.5 h-2.5" />
-              </button>
-            </div>
-          ))}
-        </div>
-      </div>
 
       {/* Start Extraction Submit Action */}
       {attachments.length > 0 && (
